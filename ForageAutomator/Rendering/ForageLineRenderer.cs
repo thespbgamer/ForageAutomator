@@ -12,22 +12,27 @@ namespace ForageAutomator.Rendering
 {
     internal sealed class ForageLineRenderer
     {
-        private const int LineUpdateInterval = 5;
+        private const int LineUpdateInterval = 60;
 
         private readonly ModConfig config;
         private readonly PassivePickupController passiveController;
         private readonly ForageRunController runController;
-        private readonly ForageTargetScanner scanner = new();
+        private readonly ForageScanCache scanCache;
         private readonly List<ForageTarget> visibleTargets = new();
         private int tickCounter;
         private bool refreshRequested;
         private bool hiddenForSweep;
 
-        public ForageLineRenderer(ModConfig config, PassivePickupController passiveController, ForageRunController runController)
+        public ForageLineRenderer(
+            ModConfig config,
+            PassivePickupController passiveController,
+            ForageRunController runController,
+            ForageScanCache scanCache)
         {
             this.config = config;
             this.passiveController = passiveController;
             this.runController = runController;
+            this.scanCache = scanCache;
         }
 
         public void Invalidate()
@@ -61,11 +66,14 @@ namespace ForageAutomator.Rendering
             }
 
             tickCounter++;
-            if (!refreshRequested && tickCounter % LineUpdateInterval != 0)
+            GameLocation location = Game1.currentLocation;
+            Farmer player = Game1.player;
+            bool cacheRefreshed = scanCache.TryRefreshIfNeeded(location, player);
+            if (!refreshRequested && !cacheRefreshed && tickCounter % LineUpdateInterval != 0)
                 return;
 
             refreshRequested = false;
-            RefreshVisibleTargets();
+            RefreshVisibleTargets(location, player);
         }
 
         public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -110,21 +118,20 @@ namespace ForageAutomator.Rendering
             }
         }
 
-        private void RefreshVisibleTargets()
+        private void RefreshVisibleTargets(GameLocation location, Farmer player)
         {
             visibleTargets.Clear();
 
-            GameLocation location = Game1.currentLocation;
-            Farmer player = Game1.player;
-
-            IReadOnlyList<ForageTarget> scanned = scanner.Scan(
-                location,
-                player,
-                ForageTargetFilters.GetLineScanRadius(config));
-            scanner.ApplyReachability(location, player, scanned);
+            int? maxRadius = ForageTargetFilters.GetLineScanRadius(config);
+            IReadOnlyList<ForageTarget> scanned = maxRadius.HasValue
+                ? scanCache.GetTargetsInTileRadius(location, player, maxRadius.Value)
+                : scanCache.GetAllTargets(location, player);
 
             foreach (ForageTarget target in ForageTargetFilters.FilterForLines(config, scanned))
             {
+                if (target.Type == ForageType.Panning && !PanningHelper.IsActivePanTile(location, target.Tile))
+                    continue;
+
                 ClassifyTarget(player, target);
 
                 if (target.SkipReason == SkipReason.EmptyBush && !config.ShowLinesEmptyBushes)
@@ -138,7 +145,7 @@ namespace ForageAutomator.Rendering
 
             foreach (ForageTarget skipped in passiveController.SkippedTargets)
             {
-                if (!ShouldIncludeSkippedTarget(skipped))
+                if (!ShouldIncludeSkippedTarget(location, player, skipped))
                     continue;
 
                 if (!visibleTargets.Any(t => t.Tile == skipped.Tile))
@@ -147,7 +154,7 @@ namespace ForageAutomator.Rendering
 
             foreach (ForageTarget skipped in runController.SkippedTargets)
             {
-                if (!ShouldIncludeSkippedTarget(skipped))
+                if (!ShouldIncludeSkippedTarget(location, player, skipped))
                     continue;
 
                 if (!visibleTargets.Any(t => t.Tile == skipped.Tile))
@@ -186,12 +193,19 @@ namespace ForageAutomator.Rendering
             }
         }
 
-        private bool ShouldIncludeSkippedTarget(ForageTarget target)
+        private bool ShouldIncludeSkippedTarget(GameLocation location, Farmer player, ForageTarget target)
         {
             if (!ForageTargetFilters.IsEnabledForLines(config, target.Type))
                 return false;
 
-            return IsTargetStillVisible(target);
+            if (target.Type == ForageType.Panning && !PanningHelper.IsActivePanTile(location, target.Tile))
+                return false;
+
+            if (!IsTargetStillVisible(target))
+                return false;
+
+            ClassifyTarget(player, target);
+            return true;
         }
 
         private void ClassifyTarget(Farmer player, ForageTarget target)
@@ -215,12 +229,33 @@ namespace ForageAutomator.Rendering
             }
 
             if (target.SkipReason == SkipReason.Unreachable)
-                return;
+            {
+                if (target.Type == ForageType.Panning
+                    && PanningHelper.FindStandTileAnywhere(Game1.currentLocation, player, target.Tile) != null)
+                {
+                    target.SkipReason = SkipReason.OutOfRange;
+                }
+                else
+                {
+                    return;
+                }
+            }
 
             if (!CollectionHelper.IsWithinPickupRange(player, target.Tile, config.PickupRadius))
+            {
                 target.SkipReason = SkipReason.OutOfRange;
-            else
-                target.SkipReason = SkipReason.None;
+                return;
+            }
+
+            if (target.Type == ForageType.Panning)
+            {
+                target.SkipReason = PanningHelper.IsReadyToCollect(Game1.currentLocation, player, target)
+                    ? SkipReason.None
+                    : SkipReason.OutOfRange;
+                return;
+            }
+
+            target.SkipReason = SkipReason.None;
         }
 
         private bool IsTargetStillVisible(ForageTarget target)
@@ -256,7 +291,7 @@ namespace ForageAutomator.Rendering
             {
                 ForageType.Ground or ForageType.ArtifactSpot => location.objects.ContainsKey(target.Tile),
                 ForageType.ForageCrop => ForageCropHelper.TryGetAt(location, target.Tile, out _),
-                ForageType.Panning => (location.orePanPoint?.Value ?? Point.Zero) != Point.Zero,
+                ForageType.Panning => PanningHelper.IsActivePanTile(location, target.Tile),
                 _ => false
             };
         }

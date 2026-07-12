@@ -72,7 +72,8 @@ namespace ForageAutomator.Automation
                         continue;
 
                     if (!CanPathfindToTile(location, next)
-                        && !CanTraverseSuspensionBridge(location, current, next))
+                        && !CanTraverseSuspensionBridge(location, current, next)
+                        && !CanFarmerStandOnForPanning(location, next))
                         continue;
 
                     reachable.Add(next);
@@ -117,6 +118,42 @@ namespace ForageAutomator.Automation
         {
             return CanPathfindToTile(location, tile, farmer)
                 || IsSuspensionBridgeWalkwayTile(location, tile);
+        }
+
+        /// <summary>
+        /// Bridge floors over water can fail pathfinding collision while still being standable.
+        /// </summary>
+        public static bool CanFarmerStandOnForPanning(GameLocation location, Vector2 tile, Farmer? farmer = null)
+        {
+            if (CanFarmerStandOn(location, tile, farmer))
+                return true;
+
+            farmer ??= Game1.player;
+
+            if (!location.isTileOnMap(tile))
+                return false;
+
+            return !location.isCollidingPosition(
+                GetPathfindTileBounds(tile),
+                Game1.viewport,
+                isFarmer: true,
+                damagesFarmer: 0,
+                glider: false,
+                character: farmer,
+                pathfinding: false);
+        }
+
+        public static bool IsReachablePanStand(
+            GameLocation location,
+            Vector2 stand,
+            Vector2 panTile,
+            HashSet<Vector2> reachable,
+            Farmer? farmer = null)
+        {
+            if (reachable.Contains(stand))
+                return true;
+
+            return stand == panTile && CanFarmerStandOnForPanning(location, stand, farmer);
         }
 
         public static Vector2? FindStandTile(GameLocation location, Vector2 targetTile, HashSet<Vector2> reachable)

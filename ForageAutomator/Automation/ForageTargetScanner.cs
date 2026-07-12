@@ -3,6 +3,7 @@ using System.Linq;
 using Microsoft.Xna.Framework;
 using StardewValley;
 using StardewValley.TerrainFeatures;
+using StardewValley.Tools;
 using SObject = StardewValley.Object;
 
 namespace ForageAutomator.Automation
@@ -176,6 +177,34 @@ namespace ForageAutomator.Automation
                     && BushHelper.CanInteractWith(location, player, bush))
                 {
                     target.StandTile = player.Tile;
+                    continue;
+                }
+
+                if (target.Type == ForageType.Panning)
+                {
+                    Pan? pan = ToolHelper.FindCopperPan(player);
+
+                    if (PanningHelper.CanInteractFrom(location, player, target.Tile, pan))
+                    {
+                        target.StandTile = player.Tile;
+                        continue;
+                    }
+
+                    Vector2? panStand = PanningHelper.FindStandTile(location, player, target.Tile, reachable, pan);
+                    if (!panStand.HasValue)
+                    {
+                        Vector2? anyStand = PanningHelper.FindStandTileAnywhere(location, player, target.Tile, pan);
+                        if (anyStand.HasValue)
+                        {
+                            target.StandTile = anyStand.Value;
+                            continue;
+                        }
+
+                        target.SkipReason = SkipReason.Unreachable;
+                        continue;
+                    }
+
+                    target.StandTile = panStand.Value;
                     continue;
                 }
 

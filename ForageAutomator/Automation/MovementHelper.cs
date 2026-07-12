@@ -127,6 +127,9 @@ namespace ForageAutomator.Automation
             if (target.Type == ForageType.Bush && target.Source is Bush bush)
                 return BushHelper.CanInteractWith(Game1.currentLocation, player, bush);
 
+            if (target.Type == ForageType.Panning)
+                return PanningHelper.CanInteractFrom(Game1.currentLocation, player, target.Tile, ToolHelper.FindCopperPan(player));
+
             return CollectionHelper.CanInteractWith(player, target.Tile);
         }
 
@@ -147,6 +150,12 @@ namespace ForageAutomator.Automation
 
             if (target.Type == ForageType.Bush && target.Source is Bush bush)
                 return bush.Tile;
+
+            if (target.Type == ForageType.Panning)
+            {
+                Vector2? stand = PanningHelper.ResolveStandTile(Game1.currentLocation, Game1.player, target, target.Tile);
+                return stand ?? Game1.player.Tile;
+            }
 
             return target.Tile;
         }

@@ -22,7 +22,7 @@ namespace ForageAutomator.Automation
     internal sealed class ForageRunController
     {
         private readonly ModConfig config;
-        private readonly ForageTargetScanner scanner;
+        private readonly ForageScanCache scanCache;
         private readonly ForageCollectionService collectionService;
         private readonly HudNotifier notifier;
         private readonly List<ForageTarget> queue = new();
@@ -39,6 +39,7 @@ namespace ForageAutomator.Automation
         private string? sweepLocationName;
         private bool pendingAutoStart;
         private int pendingAutoStartWarmupTicks;
+        private bool autoSweepSuppressedUntilWarp;
         private const int AutoStartWarmupTicks = 15;
         private int? sweepRadiusTiles;
         private Vector2 lastPlayerPosition;
@@ -54,21 +55,23 @@ namespace ForageAutomator.Automation
             skippedTargets.Clear();
         }
 
-        public ForageRunController(ModConfig config, HudNotifier notifier)
+        public ForageRunController(ModConfig config, HudNotifier notifier, ForageScanCache scanCache)
         {
             this.config = config;
+            this.scanCache = scanCache;
             this.notifier = notifier;
-            scanner = new ForageTargetScanner();
             collectionService = new ForageCollectionService(notifier);
         }
 
         public void StartWholeMap()
         {
+            autoSweepSuppressedUntilWarp = false;
             StartSweep(maxRadius: null);
         }
 
         public void StartRange()
         {
+            autoSweepSuppressedUntilWarp = false;
             StartSweep(maxRadius: config.PickupRadius);
         }
 
@@ -114,6 +117,7 @@ namespace ForageAutomator.Automation
 
         private void BeginSweep(int? maxRadius)
         {
+            scanCache.Invalidate();
             sweepRadiusTiles = maxRadius;
             returnTile = Game1.player.Tile;
             sweepLocationName = Game1.currentLocation.NameOrUniqueName;
@@ -134,7 +138,7 @@ namespace ForageAutomator.Automation
 
         public void ScheduleAutoStart()
         {
-            if (!config.AutoCollectWholeMap)
+            if (!config.AutoCollectWholeMap || autoSweepSuppressedUntilWarp)
                 return;
 
             pendingAutoStart = true;
@@ -143,13 +147,21 @@ namespace ForageAutomator.Automation
 
         public void Cancel()
         {
-            Cancel(returnToStart: config.ReturnToStartAfterSweep);
+            Cancel(returnToStart: config.ReturnToStartAfterSweep, suppressAutoUntilWarp: true);
         }
 
         public void Cancel(bool returnToStart)
         {
+            Cancel(returnToStart, suppressAutoUntilWarp: true);
+        }
+
+        public void Cancel(bool returnToStart, bool suppressAutoUntilWarp)
+        {
             pendingAutoStart = false;
             pendingAutoStartWarmupTicks = 0;
+
+            if (suppressAutoUntilWarp)
+                autoSweepSuppressedUntilWarp = true;
 
             if (!IsRunning)
                 return;
@@ -171,14 +183,40 @@ namespace ForageAutomator.Automation
 
         public void OnWarped()
         {
+            autoSweepSuppressedUntilWarp = false;
             WalkabilityHelper.InvalidateReachabilityCache();
 
             if (IsRunning)
-                Cancel(returnToStart: false);
+                Cancel(returnToStart: false, suppressAutoUntilWarp: false);
+
+            OnLocationContentChanged();
+        }
+
+        public void OnCollectSettingsChanged()
+        {
+            WalkabilityHelper.InvalidateReachabilityCache();
+            skippedTargets.Clear();
+
+            if (IsRunning)
+                Cancel(returnToStart: false, suppressAutoUntilWarp: false);
+
+            if (config.AutoCollectWholeMap)
+                ScheduleAutoStart();
+        }
+
+        public void OnLocationContentChanged()
+        {
+            WalkabilityHelper.InvalidateReachabilityCache();
+
+            if (config.AutoCollectWholeMap && !IsRunning && HasCollectableTargets())
+                ScheduleAutoStart();
         }
 
         public void UpdateTicked()
         {
+            if (scanCache.ConsumeJustRefreshed())
+                OnLocationContentChanged();
+
             TryPendingAutoStart();
 
             if (!IsRunning)
@@ -239,7 +277,7 @@ namespace ForageAutomator.Automation
                     return;
                 }
 
-                CollectionHelper.PreparePlayer(player, BushHelper.GetTargetFaceTile(Game1.currentLocation, player, currentTarget));
+                CollectionHelper.PreparePlayerForTarget(Game1.currentLocation, player, currentTarget);
                 settleAttempts++;
 
                 if (MovementHelper.IsCloseEnoughToCollect(player, currentTarget))
@@ -281,9 +319,8 @@ namespace ForageAutomator.Automation
             Farmer player = Game1.player;
 
             IReadOnlyList<ForageTarget> targets = sweepRadiusTiles.HasValue
-                ? scanner.Scan(location, player, sweepRadiusTiles.Value)
-                : scanner.Scan(location, player);
-            scanner.ApplyReachability(location, player, targets);
+                ? scanCache.GetTargetsInRadius(location, player, sweepRadiusTiles.Value)
+                : scanCache.GetAllTargets(location, player);
 
             foreach (ForageTarget target in targets)
             {
@@ -370,7 +407,12 @@ namespace ForageAutomator.Automation
             }
 
             Vector2 stand = MovementHelper.GetStandOrTargetTile(currentTarget);
-            if (!WalkabilityHelper.IsReachable(Game1.currentLocation, Game1.player.Tile, stand))
+            bool unreachable = currentTarget.Type == ForageType.Panning
+                ? currentTarget.StandTile == Vector2.Zero
+                    || !WalkabilityHelper.IsReachable(Game1.currentLocation, Game1.player.Tile, stand)
+                : !WalkabilityHelper.IsReachable(Game1.currentLocation, Game1.player.Tile, stand);
+
+            if (unreachable)
             {
                 if (config.ShowTargetLines)
                 {
@@ -385,6 +427,8 @@ namespace ForageAutomator.Automation
 
             if (currentTarget.Type == ForageType.Bush && currentTarget.Source is Bush bush)
                 BushHelper.SnapForBush(Game1.currentLocation, Game1.player, bush, stand);
+            else if (currentTarget.Type == ForageType.Panning)
+                PanningHelper.TryMoveToPanStand(Game1.currentLocation, Game1.player, currentTarget);
             else
                 MovementHelper.SnapToStandTile(Game1.player, stand);
             BeginSettling(usedSnap: true);
@@ -427,31 +471,41 @@ namespace ForageAutomator.Automation
                 return;
             }
 
-            CollectionHelper.PreparePlayer(player, BushHelper.GetTargetFaceTile(location, player, target));
+            CollectionHelper.PreparePlayerForTarget(location, player, target);
 
             CollectResult result = CollectResult.Failed;
             for (int attempt = 0; attempt < 3; attempt++)
             {
                 if (!MovementHelper.IsCloseEnoughToCollect(player, target))
                 {
-                    Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
-                    if (target.Type == ForageType.Bush && target.Source is Bush bush)
+                    if (target.Type == ForageType.Panning)
                     {
+                        if (!PanningHelper.TryMoveToPanStand(location, player, target))
+                            continue;
+                    }
+                    else if (target.Type == ForageType.Bush && target.Source is Bush bush)
+                    {
+                        Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
                         if (!BushHelper.TrySnapForInteraction(location, player, bush, stand))
                             continue;
                     }
-                    else if (!MovementHelper.TrySnapToStandTile(location, player, stand))
+                    else
                     {
-                        continue;
+                        Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
+                        if (!MovementHelper.TrySnapToStandTile(location, player, stand))
+                            continue;
                     }
                 }
 
-                CollectionHelper.PreparePlayer(player, BushHelper.GetTargetFaceTile(location, player, target));
+                CollectionHelper.PreparePlayerForTarget(location, player, target);
                 result = collectionService.TryCollect(location, player, target);
 
                 if (result == CollectResult.Success)
                     break;
             }
+
+            if (target.Type == ForageType.Panning)
+                PanningHelper.ClearPanAnimationState(player);
 
             MovementHelper.ReleasePlayerControlIfNeeded(player);
 
@@ -479,7 +533,7 @@ namespace ForageAutomator.Automation
             {
                 ForageType.Ground or ForageType.ArtifactSpot => location.objects.ContainsKey(target.Tile),
                 ForageType.ForageCrop => ForageCropHelper.TryGetAt(location, target.Tile, out _),
-                ForageType.Panning => (location.orePanPoint?.Value ?? Point.Zero) != Point.Zero,
+                ForageType.Panning => PanningHelper.IsActivePanTile(location, target.Tile),
                 ForageType.Bush => BushHelper.TryGetAt(location, target.Tile, out Bush bush) && BushHelper.IsHarvestable(bush),
                 _ => false
             };
@@ -544,6 +598,33 @@ namespace ForageAutomator.Automation
 
             pendingAutoStart = false;
             StartAutomatic();
+        }
+
+        private bool HasCollectableTargets()
+        {
+            if (!Context.IsWorldReady)
+                return false;
+
+            GameLocation location = Game1.currentLocation;
+            Farmer player = Game1.player;
+
+            IReadOnlyList<ForageTarget> targets = scanCache.GetAllTargets(location, player);
+
+            foreach (ForageTarget target in targets)
+            {
+                if (!ForageTargetFilters.IsEnabledForCollect(config, target.Type))
+                    continue;
+
+                if (target.SkipReason == SkipReason.Unreachable)
+                    continue;
+
+                if (!ToolHelper.HasRequiredTool(player, target.RequiredTool))
+                    continue;
+
+                return true;
+            }
+
+            return false;
         }
     }
 

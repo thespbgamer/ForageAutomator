@@ -29,6 +29,17 @@ namespace ForageAutomator.Automation
             FaceTarget(player, targetTile);
         }
 
+        public static void PreparePlayerForTarget(GameLocation location, Farmer player, ForageTarget target)
+        {
+            if (target.Type == ForageType.Panning)
+            {
+                PanningHelper.PrepareForPanning(player, target.Tile);
+                return;
+            }
+
+            PreparePlayer(player, BushHelper.GetTargetFaceTile(location, player, target));
+        }
+
         public static void FaceTarget(Farmer player, Vector2 targetTile)
         {
             Vector2 diff = targetTile - player.Tile;

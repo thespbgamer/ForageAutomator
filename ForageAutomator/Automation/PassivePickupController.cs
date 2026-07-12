@@ -14,7 +14,7 @@ namespace ForageAutomator.Automation
 
         private readonly ModConfig config;
         private readonly HudNotifier notifier;
-        private readonly ForageTargetScanner scanner;
+        private readonly ForageScanCache scanCache;
         private readonly ForageCollectionService collectionService;
         private readonly List<ForageTarget> skippedTargets = new();
         private int tickCounter;
@@ -30,11 +30,11 @@ namespace ForageAutomator.Automation
             skippedTargets.Clear();
         }
 
-        public PassivePickupController(ModConfig config, HudNotifier notifier)
+        public PassivePickupController(ModConfig config, HudNotifier notifier, ForageScanCache scanCache)
         {
             this.config = config;
             this.notifier = notifier;
-            scanner = new ForageTargetScanner();
+            this.scanCache = scanCache;
             collectionService = new ForageCollectionService(notifier);
         }
 
@@ -66,23 +66,25 @@ namespace ForageAutomator.Automation
             lastPlayerPosition = player.Position;
 
             tickCounter++;
-            int interval = (player.isMoving() || highSpeed) ? 1 : 5;
+            int interval = (player.isMoving() || highSpeed) ? 5 : 15;
             if (tickCounter % interval != 0)
                 return;
 
             if (!Context.IsPlayerFree && player.controller == null)
                 return;
 
-            if (player.UsingTool)
-                return;
+            if (player.UsingTool || player.FarmerSprite.PauseForSingleAnimation)
+            {
+                if (!TryClearStuckPanAnimation(location, player))
+                    return;
+            }
 
             bool ridingHorse = MovementHelper.IsRidingHorse(player);
 
-            int scanRadius = config.PickupRadius + (highSpeed ? 2 : 0);
+            int scanRadius = config.PickupRadius + (highSpeed ? 1 : 0);
             IReadOnlyList<ForageTarget> targets = ForageTargetFilters
-                .FilterForCollect(config, scanner.Scan(location, player, scanRadius))
+                .FilterForCollect(config, scanCache.GetTargetsInRadius(location, player, scanRadius))
                 .ToList();
-            scanner.ApplyReachability(location, player, targets);
 
             skippedTargets.Clear();
             bool hasInRangeTarget = false;
@@ -136,6 +138,23 @@ namespace ForageAutomator.Automation
                     continue;
                 }
 
+                if (target.Type == ForageType.Panning)
+                {
+                    if (!PanningHelper.IsReadyToCollect(location, player, target))
+                    {
+                        if (!PanningHelper.TryMoveToPanStand(location, player, target))
+                            continue;
+                    }
+
+                    CollectResult panResult = collectionService.TryCollect(location, player, target);
+                    PanningHelper.ClearPanAnimationState(player);
+
+                    if (panResult != CollectResult.Success && config.ShowTargetLines)
+                        skippedTargets.Add(target);
+
+                    continue;
+                }
+
                 if (!MovementHelper.IsCloseEnoughToCollect(player, target))
                 {
                     if (highSpeed && CollectionHelper.IsWithinPickupRange(player, target.Tile, pickupRadius + 1))
@@ -164,6 +183,18 @@ namespace ForageAutomator.Automation
                 notifier.ShowRidingHorseBlocked();
         }
 
+        private static bool TryClearStuckPanAnimation(GameLocation location, Farmer player)
+        {
+            if (!PanningHelper.TryGetPanTile(location, out Vector2 panTile))
+                return false;
+
+            if (!PanningHelper.CanInteractFrom(location, player, panTile, ToolHelper.FindCopperPan(player)))
+                return false;
+
+            PanningHelper.ClearPanAnimationState(player);
+            return true;
+        }
+
         private void BeginActionHold(Farmer player, GameLocation location, Vector2 tile)
         {
             holdTile = tile;
@@ -184,10 +215,18 @@ namespace ForageAutomator.Automation
         private static void SnapToTarget(Farmer player, ForageTarget target)
         {
             GameLocation location = Game1.currentLocation;
-            Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
 
-            if (target.SkipReason == SkipReason.Unreachable
-                || !WalkabilityHelper.IsReachable(location, player.Tile, stand))
+            if (target.SkipReason == SkipReason.Unreachable)
+                return;
+
+            if (target.Type == ForageType.Panning)
+            {
+                PanningHelper.TryMoveToPanStand(location, player, target);
+                return;
+            }
+
+            Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
+            if (!WalkabilityHelper.IsReachable(location, player.Tile, stand))
                 return;
 
             if (target.Type == ForageType.Bush && target.Source is Bush bush)

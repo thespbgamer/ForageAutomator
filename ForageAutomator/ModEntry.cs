@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using ForageAutomator.Automation;
 using ForageAutomator.Notifications;
 using ForageAutomator.Rendering;
@@ -12,6 +13,7 @@ namespace ForageAutomator
     {
         private ModConfig config = null!;
         private HudNotifier notifier = null!;
+        private ForageScanCache scanCache = null!;
         private PassivePickupController passiveController = null!;
         private ForageRunController runController = null!;
         private ForageLineRenderer lineRenderer = null!;
@@ -23,14 +25,18 @@ namespace ForageAutomator
             ConfigColor.Sanitize(config);
 
             notifier = new HudNotifier(config, helper.Translation);
-            passiveController = new PassivePickupController(config, notifier);
-            runController = new ForageRunController(config, notifier);
-            lineRenderer = new ForageLineRenderer(config, passiveController, runController);
+            scanCache = new ForageScanCache();
+            passiveController = new PassivePickupController(config, notifier, scanCache);
+            runController = new ForageRunController(config, notifier, scanCache);
+            lineRenderer = new ForageLineRenderer(config, passiveController, runController, scanCache);
 
             helper.Events.GameLoop.GameLaunched += OnGameLaunched;
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
+            helper.Events.GameLoop.DayStarted += OnDayStarted;
+            helper.Events.GameLoop.TimeChanged += OnTimeChanged;
             helper.Events.Input.ButtonPressed += OnButtonPressed;
             helper.Events.Player.Warped += OnWarped;
+            helper.Events.World.ObjectListChanged += OnObjectListChanged;
             helper.Events.Display.RenderedWorld += lineRenderer.OnRenderedWorld;
 
             helper.ConsoleCommands.Add("fa_start", Helper.Translation.Get("commands.fa.start.description"), StartSweep);
@@ -49,15 +55,15 @@ namespace ForageAutomator
                 reset: () =>
                 {
                     config.ResetToDefaults();
-                    OnConfigChanged();
+                    OnConfigChanged(null);
                 },
                 save: () =>
                 {
-                    OnConfigChanged();
+                    OnConfigChanged(null);
                     Helper.WriteConfig(config);
                 });
 
-            api.OnFieldChanged(ModManifest, (_, _) => OnConfigChanged());
+            api.OnFieldChanged(ModManifest, (fieldName, _) => OnConfigChanged(fieldName));
 
             api.AddSectionTitle(
                 mod: ModManifest,
@@ -265,12 +271,72 @@ namespace ForageAutomator
                 tooltip: () => Helper.Translation.Get("config.show-sweep-experience.tooltip"));
         }
 
-        private void OnConfigChanged()
+        private void OnConfigChanged(string? fieldName)
         {
             ConfigColor.Sanitize(config);
             lineRenderer.Invalidate();
             passiveController.ClearSkippedTargets();
             runController.ClearSkippedTargets();
+
+            if (AffectsCollection(fieldName))
+                runController.OnCollectSettingsChanged();
+            else
+                WalkabilityHelper.InvalidateReachabilityCache();
+
+            scanCache.Invalidate();
+        }
+
+        private static bool AffectsCollection(string? fieldName)
+        {
+            if (fieldName == null)
+                return true;
+
+            return fieldName is nameof(ModConfig.AutoCollectOnRange)
+                or nameof(ModConfig.AutoCollectWholeMap)
+                or nameof(ModConfig.PickupRadius)
+                or nameof(ModConfig.UsePathfinding)
+                or nameof(ModConfig.CollectGroundForage)
+                or nameof(ModConfig.CollectBushes)
+                or nameof(ModConfig.CollectArtifactSpots)
+                or nameof(ModConfig.CollectPanning)
+                or nameof(ModConfig.EnablePassivePickup);
+        }
+
+        private void OnDayStarted(object? sender, DayStartedEventArgs e)
+        {
+            if (!Context.IsWorldReady)
+                return;
+
+            OnLocationContentChanged();
+        }
+
+        private void OnObjectListChanged(object? sender, ObjectListChangedEventArgs e)
+        {
+            if (!Context.IsWorldReady || e.Location != Game1.currentLocation)
+                return;
+
+            if (!e.Added.Any() && !e.Removed.Any())
+                return;
+
+            scanCache.Invalidate();
+            lineRenderer.Invalidate();
+            passiveController.ClearSkippedTargets();
+        }
+
+        private void OnLocationContentChanged()
+        {
+            scanCache.Invalidate();
+            lineRenderer.Invalidate();
+            passiveController.ClearSkippedTargets();
+            runController.OnLocationContentChanged();
+        }
+
+        private void OnTimeChanged(object? sender, TimeChangedEventArgs e)
+        {
+            if (!Context.IsWorldReady)
+                return;
+
+            OnLocationContentChanged();
         }
 
         private void RegisterLineColorOption(
@@ -294,8 +360,8 @@ namespace ForageAutomator
                 return;
 
             passiveController.UpdateTicked(runController.IsRunning);
-            runController.UpdateTicked();
             lineRenderer.UpdateTicked();
+            runController.UpdateTicked();
         }
 
         private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
