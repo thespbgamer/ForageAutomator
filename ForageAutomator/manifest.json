@@ -1,0 +1,17 @@
+{
+  "Name": "Forage Automator",
+  "Author": "thespbgamer",
+  "Version": "1.0.0",
+  "Description": "Automatically collects forageables on the current map with passive pickup, hotkey sweep, and target lines.",
+  "UniqueID": "thespbgamer.ForageAutomator",
+  "EntryDll": "ForageAutomator.dll",
+  "MinimumApiVersion": "4.5.2",
+  "UpdateKeys": [""],
+  "Dependencies": [
+    {
+      "UniqueID": "spacechase0.GenericModConfigMenu",
+      "MinimumVersion": "1.16.0",
+      "IsRequired": false
+    }
+  ]
+}

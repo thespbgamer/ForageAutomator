@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C#: ForageAutomator Debug",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/ForageAutomator/ForageAutomator.csproj"
+    },
+    {
+      "name": "C#: Build",
+      "command": "dotnet build",
+      "request": "launch",
+      "type": "node-terminal"
+    }
+  ]
+}

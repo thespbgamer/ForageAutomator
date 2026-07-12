@@ -1,0 +1,6 @@
+.vs
+ForageAutomator/obj/
+ForageAutomator/obj/Debug/
+ForageAutomator/bin/
+ForageAutomator/bin/Debug/
+.fuse_hidden*

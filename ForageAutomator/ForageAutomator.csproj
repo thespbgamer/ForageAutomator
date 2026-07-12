@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <GamePath>/mnt/disk_id/SteamLibrary/steamapps/common/Stardew Valley/</GamePath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RootNamespace>ForageAutomator</RootNamespace>
+    <AssemblyName>ForageAutomator</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="i18n\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\CHANGELOG.md" Link="CHANGELOG.md" />
+    <None Include="..\README.md" Link="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
+  </ItemGroup>
+
+</Project>
