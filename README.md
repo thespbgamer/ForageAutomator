@@ -189,7 +189,7 @@ Contributions are welcome! See [Modding:Translations](https://stardewvalleywiki.
 
 ## Changelog
 
-- [Full Changelog](CHANGELOG.md#changelog)
+- [Full Changelog](CHANGELOG.md#full-changelog)
 
 ## Developer Info / SDK Installation
 
