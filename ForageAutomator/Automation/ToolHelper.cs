@@ -80,7 +80,7 @@ namespace ForageAutomator.Automation
             return tool switch
             {
                 RequiredToolKind.Hoe => "hoe",
-                RequiredToolKind.CopperPan => "copper pan",
+                RequiredToolKind.CopperPan => "pan",
                 _ => "tool"
             };
         }
