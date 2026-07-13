@@ -47,36 +47,46 @@ namespace ForageAutomator.Automation
             Point panPoint = ToPanPoint(panTile);
             int reach = GetPanReach(pan);
 
-            foreach (Vector2 stand in EnumerateStandCandidates(panTile, reach))
+            Vector2? best = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (Vector2 stand in EnumerateStandCandidates(location, panTile, reach))
             {
-                if (!WalkabilityHelper.CanFarmerStandOnForPanning(location, stand, player))
+                if (!IsValidPanStand(location, stand, panTile, player, pan))
                     continue;
 
-                if (!CanReachPanFromStand(stand, panPoint, reach))
+                float distance = Vector2.DistanceSquared(stand, player.Tile);
+                if (distance >= bestDistance)
                     continue;
 
-                return stand;
+                bestDistance = distance;
+                best = stand;
             }
 
-            return null;
+            return best;
         }
 
         public static Rectangle GetPanInteractionArea(Point panPoint, int reach = BasePanReachTiles)
         {
             int tileSize = Game1.tileSize;
-            int halfReach = tileSize * reach / 2;
-            int fullReach = tileSize * reach;
 
+            // Match vanilla Pan.beginUsing: tile offset -1, size reach tiles.
             return new Rectangle(
-                panPoint.X * tileSize - halfReach,
-                panPoint.Y * tileSize - halfReach,
-                fullReach,
-                fullReach);
+                panPoint.X * tileSize - tileSize,
+                panPoint.Y * tileSize - tileSize,
+                tileSize * reach,
+                tileSize * reach);
+        }
+
+        public static int GetMaxStandingDistance(int reach = BasePanReachTiles)
+        {
+            // Vanilla allows standing up to 3 tiles from pan-area center with reach 4.
+            return (reach - 1) * Game1.tileSize;
         }
 
         public static bool CanInteractFrom(GameLocation location, Farmer player, Vector2 panTile, Pan? pan = null)
         {
-            if (!WalkabilityHelper.CanFarmerStandOnForPanning(location, player.Tile, player))
+            if (!WalkabilityHelper.IsDryPanStandTile(location, player.Tile, player))
                 return false;
 
             Point panPoint = ToPanPoint(panTile);
@@ -90,25 +100,42 @@ namespace ForageAutomator.Automation
                 GetPanReach(pan));
         }
 
-        public static bool CanReachPanFromStand(Vector2 standTile, Point panPoint, int reach = BasePanReachTiles)
+        public static bool IsValidPanStand(
+            GameLocation location,
+            Vector2 standTile,
+            Vector2 panTile,
+            Farmer player,
+            Pan? pan = null)
         {
+            pan ??= ToolHelper.FindCopperPan(player);
+            return WalkabilityHelper.IsDryPanStandTile(location, standTile, player)
+                && CanReachPanFromStand(location, standTile, ToPanPoint(panTile), GetPanReach(pan), panTile);
+        }
+
+        public static bool CanReachPanFromStand(
+            GameLocation location,
+            Vector2 standTile,
+            Point panPoint,
+            int reach = BasePanReachTiles,
+            Vector2? panTile = null)
+        {
+            if (location.isOpenWater((int)standTile.X, (int)standTile.Y))
+                return false;
+
+            Vector2 panVector = panTile ?? panPoint.ToVector2();
             Rectangle panArea = GetPanInteractionArea(panPoint, reach);
-            int tileSize = Game1.tileSize;
-            Rectangle tileBounds = new Rectangle(
-                (int)standTile.X * tileSize,
-                (int)standTile.Y * tileSize,
-                tileSize,
-                tileSize);
+            Rectangle standBounds = GetFarmerBoundsFacingPan(standTile, panVector);
 
-            if (tileBounds.Intersects(panArea))
-                return true;
-
-            Rectangle standBounds = GetFarmerBoundsAtTile(standTile);
             if (standBounds.Intersects(panArea))
                 return true;
 
             Point standingPixel = GetStandingPixelAtTile(standTile);
-            return CanInteractFromPosition(standBounds, standingPixel, panPoint, reach);
+            Point center = panArea.Center;
+            return Utility.distance(
+                standingPixel.X,
+                center.X,
+                standingPixel.Y,
+                center.Y) <= GetMaxStandingDistance(reach);
         }
 
         public static Vector2? FindStandTile(
@@ -118,27 +145,19 @@ namespace ForageAutomator.Automation
             HashSet<Vector2> reachable,
             Pan? pan = null)
         {
+            pan ??= ToolHelper.FindCopperPan(player);
             Point panPoint = ToPanPoint(panTile);
             int reach = GetPanReach(pan);
+
+            if (IsValidPanStand(location, player.Tile, panTile, player, pan))
+                return player.Tile;
+
             Vector2? best = null;
             float bestDistance = float.MaxValue;
 
-            if (WalkabilityHelper.IsReachablePanStand(location, player.Tile, panTile, reachable, player)
-                && WalkabilityHelper.CanFarmerStandOnForPanning(location, player.Tile, player)
-                && CanReachPanFromStand(player.Tile, panPoint, reach))
+            foreach (Vector2 stand in reachable)
             {
-                return player.Tile;
-            }
-
-            foreach (Vector2 stand in EnumerateStandCandidates(panTile, reach))
-            {
-                if (!WalkabilityHelper.IsReachablePanStand(location, stand, panTile, reachable, player))
-                    continue;
-
-                if (!WalkabilityHelper.CanFarmerStandOnForPanning(location, stand, player))
-                    continue;
-
-                if (!CanReachPanFromStand(stand, panPoint, reach))
+                if (!IsValidPanStand(location, stand, panTile, player, pan))
                     continue;
 
                 float distance = Vector2.DistanceSquared(stand, player.Tile);
@@ -149,7 +168,7 @@ namespace ForageAutomator.Automation
                 best = stand;
             }
 
-            return best;
+            return best ?? FindStandTileAnywhere(location, player, panTile, pan);
         }
 
         public static bool TryMoveToPanStand(GameLocation location, Farmer player, ForageTarget target)
@@ -174,11 +193,11 @@ namespace ForageAutomator.Automation
 
         public static bool TrySnapToStand(GameLocation location, Farmer player, Vector2 standTile, Vector2 panTile)
         {
-            HashSet<Vector2> reachable = WalkabilityHelper.GetReachableTiles(location, player.Tile);
-            if (!WalkabilityHelper.IsReachablePanStand(location, standTile, panTile, reachable, player))
+            if (!IsValidPanStand(location, standTile, panTile, player))
                 return false;
 
-            if (!WalkabilityHelper.CanFarmerStandOnForPanning(location, standTile, player))
+            HashSet<Vector2> reachable = WalkabilityHelper.GetReachableTiles(location, player.Tile);
+            if (!reachable.Contains(standTile))
                 return false;
 
             player.controller = null;
@@ -191,7 +210,6 @@ namespace ForageAutomator.Automation
         public static void PrepareForPanning(Farmer player, Vector2 panTile)
         {
             CollectionHelper.PreparePlayer(player, panTile);
-            player.faceDirection(2);
         }
 
         public static Vector2? ResolveStandTile(
@@ -204,8 +222,7 @@ namespace ForageAutomator.Automation
             pan ??= ToolHelper.FindCopperPan(player);
 
             if (target.StandTile != Vector2.Zero
-                && WalkabilityHelper.CanFarmerStandOnForPanning(location, target.StandTile, player)
-                && CanReachPanFromStand(target.StandTile, ToPanPoint(panTile), GetPanReach(pan)))
+                && IsValidPanStand(location, target.StandTile, panTile, player, pan))
             {
                 return target.StandTile;
             }
@@ -221,6 +238,27 @@ namespace ForageAutomator.Automation
             Vector2 panTile)
         {
             return ResolveStandTile(location, player, target, panTile, ToolHelper.FindCopperPan(player));
+        }
+
+        public static bool IsWithinPassivePickupRange(
+            GameLocation location,
+            Farmer player,
+            ForageTarget target,
+            int radiusTiles)
+        {
+            if (CanInteractFrom(location, player, target.Tile, ToolHelper.FindCopperPan(player)))
+                return true;
+
+            if (target.StandTile != Vector2.Zero
+                && WalkabilityHelper.IsWithinRadius(player.Tile, target.StandTile, radiusTiles))
+            {
+                return true;
+            }
+
+            return WalkabilityHelper.IsWithinRadius(
+                player.Tile,
+                target.Tile,
+                radiusTiles + GetPanReach(ToolHelper.FindCopperPan(player)));
         }
 
         public static bool IsReadyToCollect(GameLocation location, Farmer player, ForageTarget target)
@@ -289,26 +327,48 @@ namespace ForageAutomator.Automation
             int reach)
         {
             Rectangle panArea = GetPanInteractionArea(panPoint, reach);
+
             if (farmerBounds.Intersects(panArea))
                 return true;
 
-            if (!panArea.Contains(standingPixel.X, standingPixel.Y))
-                return false;
-
             Point center = panArea.Center;
-            float maxDistance = reach * Game1.tileSize;
-
-            return Utility.distance(standingPixel.X, center.X, standingPixel.Y, center.Y) <= maxDistance;
+            return Utility.distance(
+                standingPixel.X,
+                center.X,
+                standingPixel.Y,
+                center.Y) <= GetMaxStandingDistance(reach);
         }
 
-        private static Rectangle GetFarmerBoundsAtTile(Vector2 tile)
+        private static Rectangle GetFarmerBoundsFacingPan(Vector2 standTile, Vector2 panTile)
         {
             int tileSize = Game1.tileSize;
-            return new Rectangle(
-                (int)tile.X * tileSize + 8,
-                (int)tile.Y * tileSize + 16,
-                16,
-                24);
+            int x = (int)standTile.X * tileSize + 8;
+            int y = (int)standTile.Y * tileSize + 16;
+            int width = 16;
+            int height = 24;
+
+            Vector2 diff = panTile - standTile;
+            if (System.Math.Abs(diff.X) > System.Math.Abs(diff.Y))
+            {
+                if (diff.X > 0)
+                    width += tileSize / 2;
+                else
+                {
+                    x -= tileSize / 2;
+                    width += tileSize / 2;
+                }
+            }
+            else if (diff.Y > 0)
+            {
+                height += tileSize / 2;
+            }
+            else if (diff.Y < 0)
+            {
+                y -= tileSize / 2;
+                height += tileSize / 2;
+            }
+
+            return new Rectangle(x, y, width, height);
         }
 
         private static Point GetStandingPixelAtTile(Vector2 tile)
@@ -316,28 +376,70 @@ namespace ForageAutomator.Automation
             int tileSize = Game1.tileSize;
             return new Point(
                 (int)tile.X * tileSize + tileSize / 2,
-                (int)tile.Y * tileSize + tileSize / 2);
+                (int)tile.Y * tileSize + tileSize - 8);
         }
 
-        private static Point ToPanPoint(Vector2 panTile)
+        private static IEnumerable<Vector2> EnumerateStandCandidates(GameLocation location, Vector2 panTile, int reach)
         {
-            return new Point((int)panTile.X, (int)panTile.Y);
-        }
+            int searchRadius = reach + 2;
+            var ordered = new List<Vector2>();
 
-        private static IEnumerable<Vector2> EnumerateStandCandidates(Vector2 panTile, int maxTileRadius)
-        {
-            yield return panTile;
-
-            for (int dx = -maxTileRadius; dx <= maxTileRadius; dx++)
+            for (int dx = -searchRadius; dx <= searchRadius; dx++)
             {
-                for (int dy = -maxTileRadius; dy <= maxTileRadius; dy++)
+                for (int dy = -searchRadius; dy <= searchRadius; dy++)
+                {
+                    Vector2 tile = panTile + new Vector2(dx, dy);
+                    if (location.isOpenWater((int)tile.X, (int)tile.Y))
+                        continue;
+
+                    ordered.Add(tile);
+                }
+            }
+
+            ordered.Sort((a, b) =>
+            {
+                bool aShore = IsNearOpenWater(location, a);
+                bool bShore = IsNearOpenWater(location, b);
+                if (aShore != bShore)
+                    return aShore ? -1 : 1;
+
+                float aDistance = Vector2.DistanceSquared(a, panTile);
+                float bDistance = Vector2.DistanceSquared(b, panTile);
+                return aDistance.CompareTo(bDistance);
+            });
+
+            foreach (Vector2 tile in ordered)
+                yield return tile;
+        }
+
+        private static bool IsNearOpenWater(GameLocation location, Vector2 tile)
+        {
+            if (!location.isTileOnMap(tile))
+                return false;
+
+            int x = (int)tile.X;
+            int y = (int)tile.Y;
+
+            if (location.isOpenWater(x, y))
+                return false;
+
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
                 {
                     if (dx == 0 && dy == 0)
                         continue;
 
-                    yield return panTile + new Vector2(dx, dy);
+                    if (location.isOpenWater(x + dx, y + dy))
+                        return true;
                 }
             }
+
+            return false;
+        }
+        private static Point ToPanPoint(Vector2 panTile)
+        {
+            return new Point((int)panTile.X, (int)panTile.Y);
         }
     }
 

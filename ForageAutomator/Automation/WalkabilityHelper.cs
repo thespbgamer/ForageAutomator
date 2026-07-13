@@ -9,12 +9,36 @@ namespace ForageAutomator.Automation
 {
     internal static class WalkabilityHelper
     {
-        private static readonly Vector2[] AdjacentOffsets =
+        private static readonly Vector2[] CardinalOffsets =
         {
             new(0, 1),
             new(0, -1),
             new(1, 0),
             new(-1, 0)
+        };
+
+        private static readonly Vector2[] NeighborOffsets =
+        {
+            new(0, 1),
+            new(0, -1),
+            new(1, 0),
+            new(-1, 0),
+            new(1, 1),
+            new(1, -1),
+            new(-1, 1),
+            new(-1, -1)
+        };
+
+        private static readonly Vector2[] StandOffsets =
+        {
+            new(0, 1),
+            new(0, -1),
+            new(1, 0),
+            new(-1, 0),
+            new(1, 1),
+            new(1, -1),
+            new(-1, 1),
+            new(-1, -1)
         };
 
         private static readonly FieldInfo? SuspensionBridgesField =
@@ -61,7 +85,7 @@ namespace ForageAutomator.Automation
             {
                 Vector2 current = queue.Dequeue();
 
-                foreach (Vector2 offset in AdjacentOffsets)
+                foreach (Vector2 offset in NeighborOffsets)
                 {
                     Vector2 next = current + offset;
 
@@ -71,9 +95,7 @@ namespace ForageAutomator.Automation
                     if (reachable.Contains(next))
                         continue;
 
-                    if (!CanPathfindToTile(location, next)
-                        && !CanTraverseSuspensionBridge(location, current, next)
-                        && !CanFarmerStandOnForPanning(location, next))
+                    if (!CanTraverse(location, current, next))
                         continue;
 
                     reachable.Add(next);
@@ -143,6 +165,20 @@ namespace ForageAutomator.Automation
                 pathfinding: false);
         }
 
+        /// <summary>
+        /// Pan stands must be on dry land; the shimmering spot itself is open water.
+        /// </summary>
+        public static bool IsDryPanStandTile(GameLocation location, Vector2 tile, Farmer? farmer = null)
+        {
+            if (!location.isTileOnMap(tile))
+                return false;
+
+            if (location.isOpenWater((int)tile.X, (int)tile.Y))
+                return false;
+
+            return CanFarmerStandOnForPanning(location, tile, farmer);
+        }
+
         public static bool IsReachablePanStand(
             GameLocation location,
             Vector2 stand,
@@ -150,10 +186,10 @@ namespace ForageAutomator.Automation
             HashSet<Vector2> reachable,
             Farmer? farmer = null)
         {
-            if (reachable.Contains(stand))
-                return true;
+            if (!IsDryPanStandTile(location, stand, farmer))
+                return false;
 
-            return stand == panTile && CanFarmerStandOnForPanning(location, stand, farmer);
+            return reachable.Contains(stand);
         }
 
         public static Vector2? FindStandTile(GameLocation location, Vector2 targetTile, HashSet<Vector2> reachable)
@@ -161,7 +197,7 @@ namespace ForageAutomator.Automation
             Vector2? best = null;
             float bestDistance = float.MaxValue;
 
-            foreach (Vector2 offset in AdjacentOffsets)
+            foreach (Vector2 offset in StandOffsets)
             {
                 Vector2 stand = targetTile + offset;
 
@@ -195,6 +231,31 @@ namespace ForageAutomator.Automation
         public static bool IsWithinRadius(Vector2 playerTile, Vector2 targetTile, int radius)
         {
             return Vector2.Distance(playerTile, targetTile) <= radius + 0.5f;
+        }
+
+        private static bool CanTraverse(GameLocation location, Vector2 from, Vector2 to)
+        {
+            if (Vector2.DistanceSquared(from, to) == 1f)
+            {
+                return CanPathfindToTile(location, to)
+                    || CanTraverseSuspensionBridge(location, from, to)
+                    || IsDryPanStandTile(location, to);
+            }
+
+            if (!IsTraversableTile(location, to))
+                return false;
+
+            Vector2 horizontal = new(to.X, from.Y);
+            Vector2 vertical = new(from.X, to.Y);
+            return IsTraversableTile(location, horizontal)
+                || IsTraversableTile(location, vertical);
+        }
+
+        private static bool IsTraversableTile(GameLocation location, Vector2 tile)
+        {
+            return CanPathfindToTile(location, tile)
+                || IsDryPanStandTile(location, tile)
+                || IsSuspensionBridgeWalkwayTile(location, tile);
         }
 
         private static Rectangle GetPathfindTileBounds(Vector2 tile)

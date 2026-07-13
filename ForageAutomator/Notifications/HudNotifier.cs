@@ -12,6 +12,8 @@ namespace ForageAutomator.Notifications
         private DateTime lastInventoryFullMessage = DateTime.MinValue;
         private DateTime lastMissingToolMessage = DateTime.MinValue;
         private DateTime lastRidingHorseMessage = DateTime.MinValue;
+        private DateTime lastAutoSweepBlockedMessage = DateTime.MinValue;
+        private DateTime lastManualSweepBlockedMessage = DateTime.MinValue;
         private static readonly TimeSpan Cooldown = TimeSpan.FromSeconds(3);
 
         public HudNotifier(ModConfig config, ITranslationHelper translation)
@@ -61,7 +63,7 @@ namespace ForageAutomator.Notifications
 
         public void ShowSweepStarted()
         {
-            if (!config.ShowHudMessages)
+            if (!config.ShowHudMessages || !config.ShowSweepStartedMessage)
                 return;
 
             ShowMessage(translation.Get("hud.sweep-started"), HUDMessage.newQuest_type);
@@ -69,10 +71,29 @@ namespace ForageAutomator.Notifications
 
         public void ShowSweepCancelled()
         {
-            if (!config.ShowHudMessages)
+            if (!config.ShowHudMessages || !config.ShowSweepCancelledMessage)
                 return;
 
             ShowMessage(translation.Get("hud.sweep-cancelled"), HUDMessage.error_type);
+        }
+
+        public void ShowSweepBlocked(CollectScope scope)
+        {
+            if (!config.ShowHudMessages)
+                return;
+
+            ref DateTime lastMessage = ref scope == CollectScope.Auto
+                ? ref lastAutoSweepBlockedMessage
+                : ref lastManualSweepBlockedMessage;
+
+            if (DateTime.UtcNow - lastMessage < Cooldown)
+                return;
+
+            lastMessage = DateTime.UtcNow;
+            string key = scope == CollectScope.Auto
+                ? "hud.sweep-blocked-auto"
+                : "hud.sweep-blocked-manual";
+            ShowMessage(translation.Get(key), HUDMessage.error_type);
         }
 
         public void ShowRidingHorseBlocked()

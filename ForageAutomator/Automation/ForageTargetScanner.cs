@@ -193,13 +193,6 @@ namespace ForageAutomator.Automation
                     Vector2? panStand = PanningHelper.FindStandTile(location, player, target.Tile, reachable, pan);
                     if (!panStand.HasValue)
                     {
-                        Vector2? anyStand = PanningHelper.FindStandTileAnywhere(location, player, target.Tile, pan);
-                        if (anyStand.HasValue)
-                        {
-                            target.StandTile = anyStand.Value;
-                            continue;
-                        }
-
                         target.SkipReason = SkipReason.Unreachable;
                         continue;
                     }

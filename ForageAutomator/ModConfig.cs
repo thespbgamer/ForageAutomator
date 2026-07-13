@@ -26,13 +26,33 @@ namespace ForageAutomator
         /// <summary>Include XP gained in the sweep-complete HUD message.</summary>
         public bool ShowSweepExperience { get; set; } = true;
 
-        public bool CollectGroundForage { get; set; } = true;
+        public bool CollectGroundForage
+        {
+            get => ItemRules.GroundForage.Manual;
+            set => ItemRules.GroundForage.Manual = value;
+        }
 
-        public bool CollectBushes { get; set; } = true;
+        public bool CollectBushes
+        {
+            get => ItemRules.Bushes.Manual;
+            set => ItemRules.Bushes.Manual = value;
+        }
 
-        public bool CollectArtifactSpots { get; set; } = true;
+        public bool CollectArtifactSpots
+        {
+            get => ItemRules.ArtifactSpots.Manual;
+            set => ItemRules.ArtifactSpots.Manual = value;
+        }
 
-        public bool CollectPanning { get; set; } = true;
+        public bool CollectPanning
+        {
+            get => ItemRules.Panning.Manual;
+            set => ItemRules.Panning.Manual = value;
+        }
+
+        public ItemCollectConfig ItemRules { get; set; } = new();
+
+        public AreaCollectConfig Areas { get; set; } = new();
 
         public bool ShowTargetLines { get; set; } = true;
 
@@ -69,6 +89,10 @@ namespace ForageAutomator
         public bool NotifyMissingTool { get; set; } = true;
 
         public bool NotifyRidingHorse { get; set; } = true;
+
+        public bool ShowSweepStartedMessage { get; set; } = true;
+
+        public bool ShowSweepCancelledMessage { get; set; } = true;
 
         // Legacy config keys (SMAPI will populate if present in config.json).
         public bool EnablePassivePickup
@@ -110,6 +134,8 @@ namespace ForageAutomator
             CollectBushes = defaults.CollectBushes;
             CollectArtifactSpots = defaults.CollectArtifactSpots;
             CollectPanning = defaults.CollectPanning;
+            ItemRules.ResetToDefaults();
+            Areas.ResetToDefaults();
             ShowTargetLines = defaults.ShowTargetLines;
             LineRange = defaults.LineRange;
             ShowLinesGroundForage = defaults.ShowLinesGroundForage;
@@ -127,6 +153,8 @@ namespace ForageAutomator
             NotifyInventoryFull = defaults.NotifyInventoryFull;
             NotifyMissingTool = defaults.NotifyMissingTool;
             NotifyRidingHorse = defaults.NotifyRidingHorse;
+            ShowSweepStartedMessage = defaults.ShowSweepStartedMessage;
+            ShowSweepCancelledMessage = defaults.ShowSweepCancelledMessage;
         }
     }
 

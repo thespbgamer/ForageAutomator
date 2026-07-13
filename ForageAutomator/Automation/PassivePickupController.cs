@@ -70,7 +70,10 @@ namespace ForageAutomator.Automation
             if (tickCounter % interval != 0)
                 return;
 
-            if (!Context.IsPlayerFree && player.controller == null)
+            if (!AutomationGate.CanAutomate(player))
+                return;
+
+            if (!CollectPolicy.IsLocationAllowed(config, location, CollectScope.Auto))
                 return;
 
             if (player.UsingTool || player.FarmerSprite.PauseForSingleAnimation)
@@ -83,7 +86,7 @@ namespace ForageAutomator.Automation
 
             int scanRadius = config.PickupRadius + (highSpeed ? 1 : 0);
             IReadOnlyList<ForageTarget> targets = ForageTargetFilters
-                .FilterForCollect(config, scanCache.GetTargetsInRadius(location, player, scanRadius))
+                .FilterForCollect(config, scanCache.GetTargetsInRadius(location, player, scanRadius), CollectScope.Auto, location)
                 .ToList();
 
             skippedTargets.Clear();
@@ -93,7 +96,19 @@ namespace ForageAutomator.Automation
             {
                 int pickupRadius = config.PickupRadius + (highSpeed ? 1 : 0);
 
-                if (!CollectionHelper.IsWithinPickupRange(player, target.Tile, pickupRadius))
+                if (target.Type == ForageType.Panning)
+                {
+                    if (!PanningHelper.IsWithinPassivePickupRange(location, player, target, pickupRadius))
+                    {
+                        if (config.ShowTargetLines)
+                        {
+                            target.SkipReason = SkipReason.OutOfRange;
+                            skippedTargets.Add(target);
+                        }
+                        continue;
+                    }
+                }
+                else if (!CollectionHelper.IsWithinPickupRange(player, target.Tile, pickupRadius))
                 {
                     if (config.ShowTargetLines)
                     {

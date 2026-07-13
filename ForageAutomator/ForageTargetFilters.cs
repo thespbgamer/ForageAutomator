@@ -1,21 +1,24 @@
 using System.Collections.Generic;
 using System.Linq;
 using ForageAutomator.Automation;
+using StardewModdingAPI;
+using StardewValley;
 
 namespace ForageAutomator
 {
     internal static class ForageTargetFilters
     {
+        public static bool IsEnabledForCollect(ModConfig config, ForageType type, CollectScope scope, GameLocation location)
+        {
+            return CollectPolicy.ShouldCollect(config, location, type, scope);
+        }
+
         public static bool IsEnabledForCollect(ModConfig config, ForageType type)
         {
-            return type switch
-            {
-                ForageType.Ground or ForageType.ForageCrop => config.CollectGroundForage,
-                ForageType.Bush => config.CollectBushes,
-                ForageType.ArtifactSpot => config.CollectArtifactSpots,
-                ForageType.Panning => config.CollectPanning,
-                _ => true
-            };
+            if (!Context.IsWorldReady)
+                return false;
+
+            return IsEnabledForCollect(config, type, CollectScope.Manual, Game1.currentLocation);
         }
 
         public static bool IsEnabledForLines(ModConfig config, ForageType type)
@@ -30,9 +33,13 @@ namespace ForageAutomator
             };
         }
 
-        public static IEnumerable<ForageTarget> FilterForCollect(ModConfig config, IEnumerable<ForageTarget> targets)
+        public static IEnumerable<ForageTarget> FilterForCollect(
+            ModConfig config,
+            IEnumerable<ForageTarget> targets,
+            CollectScope scope,
+            GameLocation location)
         {
-            return targets.Where(t => IsEnabledForCollect(config, t.Type));
+            return targets.Where(t => IsEnabledForCollect(config, t.Type, scope, location));
         }
 
         public static IEnumerable<ForageTarget> FilterForLines(ModConfig config, IEnumerable<ForageTarget> targets)
