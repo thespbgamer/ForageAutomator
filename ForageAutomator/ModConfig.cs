@@ -26,30 +26,6 @@ namespace ForageAutomator
         /// <summary>Include XP gained in the sweep-complete HUD message.</summary>
         public bool ShowSweepExperience { get; set; } = true;
 
-        public bool CollectGroundForage
-        {
-            get => ItemRules.GroundForage.Manual;
-            set => ItemRules.GroundForage.Manual = value;
-        }
-
-        public bool CollectBushes
-        {
-            get => ItemRules.Bushes.Manual;
-            set => ItemRules.Bushes.Manual = value;
-        }
-
-        public bool CollectArtifactSpots
-        {
-            get => ItemRules.ArtifactSpots.Manual;
-            set => ItemRules.ArtifactSpots.Manual = value;
-        }
-
-        public bool CollectPanning
-        {
-            get => ItemRules.Panning.Manual;
-            set => ItemRules.Panning.Manual = value;
-        }
-
         public ItemCollectConfig ItemRules { get; set; } = new();
 
         public AreaCollectConfig Areas { get; set; } = new();
@@ -94,31 +70,6 @@ namespace ForageAutomator
 
         public bool ShowSweepCancelledMessage { get; set; } = true;
 
-        // Legacy config keys (SMAPI will populate if present in config.json).
-        public bool EnablePassivePickup
-        {
-            get => AutoCollectOnRange;
-            set => AutoCollectOnRange = value;
-        }
-
-        public bool EnableHotkeyWholeMap
-        {
-            get => true;
-            set { }
-        }
-
-        public bool EnableHotkeySweep
-        {
-            get => true;
-            set { }
-        }
-
-        public KeybindList ToggleKey
-        {
-            get => WholeMapKey;
-            set => WholeMapKey = value;
-        }
-
         public void ResetToDefaults()
         {
             ModConfig defaults = new();
@@ -130,10 +81,6 @@ namespace ForageAutomator
             RangeKey = defaults.RangeKey;
             WholeMapKey = defaults.WholeMapKey;
             ShowSweepExperience = defaults.ShowSweepExperience;
-            CollectGroundForage = defaults.CollectGroundForage;
-            CollectBushes = defaults.CollectBushes;
-            CollectArtifactSpots = defaults.CollectArtifactSpots;
-            CollectPanning = defaults.CollectPanning;
             ItemRules.ResetToDefaults();
             Areas.ResetToDefaults();
             ShowTargetLines = defaults.ShowTargetLines;

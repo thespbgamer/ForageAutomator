@@ -22,7 +22,6 @@ namespace ForageAutomator
         {
             ModTranslations.Initialize(helper.Translation);
             config = helper.ReadConfig<ModConfig>();
-            config.Areas.MigrateLegacyAllowlistIfNeeded();
             ConfigColor.Sanitize(config);
 
             notifier = new HudNotifier(config, helper.Translation);
@@ -95,11 +94,6 @@ namespace ForageAutomator
                 or nameof(ModConfig.AutoCollectWholeMap)
                 or nameof(ModConfig.PickupRadius)
                 or nameof(ModConfig.UsePathfinding)
-                or nameof(ModConfig.CollectGroundForage)
-                or nameof(ModConfig.CollectBushes)
-                or nameof(ModConfig.CollectArtifactSpots)
-                or nameof(ModConfig.CollectPanning)
-                or nameof(ModConfig.EnablePassivePickup)
                 or nameof(ModConfig.ItemRules)
                 or nameof(ModConfig.Areas)
                 || fieldName.StartsWith("ItemRules.")

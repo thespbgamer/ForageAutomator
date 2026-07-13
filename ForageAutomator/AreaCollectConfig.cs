@@ -5,12 +5,7 @@ namespace ForageAutomator
 {
     public sealed class AreaCollectConfig
     {
-        public bool LegacyMigrated { get; set; }
-
         public Dictionary<string, ScopeRule> Blocked { get; set; } = new();
-
-        /// <summary>Legacy allowlist entries from older config versions.</summary>
-        public Dictionary<string, ScopeRule> Locations { get; set; } = new();
 
         public ScopeRule GetBlockRule(string locationId, GameLocation? location = null)
         {
@@ -50,30 +45,6 @@ namespace ForageAutomator
             PruneIfEmpty(locationId);
         }
 
-        public void MigrateLegacyAllowlistIfNeeded()
-        {
-            if (LegacyMigrated)
-                return;
-
-            if (Blocked.Count == 0 && Locations.Count > 0)
-            {
-                foreach ((string locationId, ScopeRule rule) in Locations)
-                {
-                    var blocked = new ScopeRule
-                    {
-                        Auto = !rule.Auto,
-                        Manual = !rule.Manual
-                    };
-
-                    if (blocked.Auto || blocked.Manual)
-                        Blocked[locationId] = blocked;
-                }
-            }
-
-            Locations.Clear();
-            LegacyMigrated = true;
-        }
-
         private ScopeRule EnsureBlocked(string locationId)
         {
             if (!Blocked.TryGetValue(locationId, out ScopeRule? rule))
@@ -102,9 +73,7 @@ namespace ForageAutomator
 
         public void ResetToDefaults()
         {
-            LegacyMigrated = true;
             Blocked.Clear();
-            Locations.Clear();
         }
     }
 

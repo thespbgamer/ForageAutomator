@@ -2,22 +2,37 @@
 
 **Forage Automator** is a [Stardew Valley](http://stardewvalley.net/) SMAPI mod that automatically collects forageables on the current map. It works in single-player; multiplayer is untested.
 
+Collection happens in two modes:
+
+| Mode          | What triggers it                                                              |
+| :------------ | :---------------------------------------------------------------------------- |
+| **Automatic** | Range pickup while walking, and whole-map auto-sweep when entering a location |
+| **Manual**    | `F5` / `F6` hotkeys, and the `fa_start` console command                       |
+
+Item types and locations can be configured separately for each mode. Changes apply immediately in-game.
+
 ### Auto collect on range
 
-- **Behavior:** While enabled, forageables within your pickup radius are collected as you walk — no hotkey required.
+- While enabled, forageables within your pickup radius are collected as you walk — no hotkey required.
 - Scans more often while moving or at high speed, and snaps to targets when needed.
+- Respects **Item rules** (automatic) and **Area rules** (automatic blocklist).
 
 ### Auto collect whole map
 
-- **Behavior:** When enabled, automatically sweeps the current map for forageables whenever you enter a location.
+- When enabled, automatically sweeps the current map for forageables when you enter a location (or when new forage appears).
+- Does not run during cutscenes, dialogue, menus, bus travel animations, or while the player has a movement controller.
+- Respects **Item rules** (automatic) and **Area rules** (automatic blocklist).
+- Shows _Automatic forage sweep blocked in this area_ only when the area blocks auto collection **and** there are collectable targets on the map.
 
 ### Range sweep hotkey
 
-- **Keyboard:** Press `F5` (configurable) to start or cancel a forage sweep within pickup radius.
+- Press `F5` (configurable) to start or cancel a forage sweep within pickup radius.
+- Uses **Manual** item and area rules.
 
 ### Whole map sweep hotkey
 
-- **Keyboard:** Press `F6` (configurable) to start or cancel a whole-map forage sweep on the current location.
+- Press `F6` (configurable) to start or cancel a whole-map forage sweep on the current location.
+- Uses **Manual** item and area rules.
 
 ### Pathfinding
 
@@ -30,23 +45,42 @@
 
 ### Target lines
 
-- When a forageable cannot be picked up (full inventory, missing tool, unreachable), a colored line is drawn from the player to the target.
+- When a forageable cannot be picked up (full inventory, missing tool, unreachable, on horse, etc.), a colored line is drawn from the player to the target.
 - Lines are hidden while a sweep is running.
+- Line visibility is controlled per forage type; line colors are configurable.
 
-### Supported forageables
+### Item rules
 
-Does **not** collect regular farm crops (parsnips, melons, wheat, etc.).
+Per forage type, choose whether **automatic** and **manual** collection are enabled:
 
-| Type | Examples | Tool | Config toggle |
-| :--- | :------- | :--- | :------------ |
-| Ground forage | Seasonal spawns, `forage_item` tagged objects | None | `CollectGroundForage` |
-| Forage crops | Spring onions, ginger | Hoe for ginger | `CollectGroundForage` |
-| Bushes | Berry bushes, tea bushes | None | `CollectBushes` |
-| Artifact spots | Worm/seed tiles | Hoe | `CollectArtifactSpots` |
-| Panning spots | Glittering water tiles | Pan | `CollectPanning` |
+| Type           | Examples                                      | Tool           |
+| :------------- | :-------------------------------------------- | :------------- |
+| Ground forage  | Seasonal spawns, `forage_item` tagged objects | None           |
+| Forage crops   | Spring onions, ginger                         | Hoe for ginger |
+| Bushes         | Berry bushes, tea bushes                      | None           |
+| Artifact spots | Worm/seed tiles                               | Hoe            |
+| Panning spots  | Glittering water tiles                        | Pan            |
+
+All types default to **on** for both automatic and manual collection.
 
 > [!NOTE]
 > Forage crops (spring onions, ginger) are vanilla crops flagged as forage — not regular planted farm crops. Ginger needs a hoe; spring onions are hand-picked. Any hoe or pan in your inventory works (not a specific tier).
+
+> [!NOTE]
+> Does **not** collect regular farm crops (parsnips, melons, wheat, etc.).
+
+### Area rules (blocklist)
+
+Collection is **allowed everywhere by default**. Turn on a block to exclude a location.
+
+| Block                          | Affects                               |
+| :----------------------------- | :------------------------------------ |
+| **Block automatic collection** | Range pickup and whole-map auto-sweep |
+| **Block manual collection**    | Hotkey sweeps and `fa_start`          |
+
+Only locations where forage can appear are listed (outdoor maps, forage spawn data, greenhouses, farm cave, mines, etc.).
+
+**Mines default:** automatic collection is blocked in mines (`Mine`, `UndergroundMine` floors such as `UndergroundMine42`, `SkullCave`, `VolcanoDungeon`, etc.). Manual sweeps are still allowed unless you block them. One **UndergroundMine** entry in config applies to all mine floors.
 
 ## Contents
 
@@ -54,9 +88,8 @@ Does **not** collect regular farm crops (parsnips, melons, wheat, etc.).
 - [Contents](#contents)
 - [Installation](#installation)
 - [Console Commands](#console-commands)
-  - [In-game settings](#in-game-settings)
 - [Configuration](#configuration)
-  - [In-game settings](#in-game-settings-1)
+  - [In-game settings (GMCM)](#in-game-settings-gmcm)
   - [`config.json` file](#configjson-file)
 - [Compatibility](#compatibility)
 - [Translation Progress](#translation-progress)
@@ -73,83 +106,142 @@ Does **not** collect regular farm crops (parsnips, melons, wheat, etc.).
 
 ## Console Commands
 
-### In-game settings
+Load a save first. Then use:
 
-Once you have the game running (having a save loaded), you can use any of these commands at any time.
-
-Here's what you can do:
-
-| Command Name | Optional Parameter(s) | Description |
-| :--------- | :-------------------- | :---------- |
-| `fa_start` | `null` aka **nothing** | Starts a full-map forage sweep on the current location. |
-| `fa_stop` | `null` aka **nothing** | Cancels the active forage sweep. |
-| `fa_status` | `null` aka **nothing** | Shows sweep state, queue size, and skipped-target count. |
+| Command     | Description                                                            |
+| :---------- | :--------------------------------------------------------------------- |
+| `fa_start`  | Starts a full-map forage sweep on the current location (manual rules). |
+| `fa_stop`   | Cancels the active forage sweep.                                       |
+| `fa_status` | Shows sweep state, queue size, and skipped-target count.               |
 
 ## Configuration
 
-### In-game settings
+### In-game settings (GMCM)
 
-If you have the [generic mod config menu](https://www.nexusmods.com/stardewvalley/mods/5098?tab=files) installed, the configuration process becomes much simpler. You can click the cog button (⚙) on the title screen or the **mod options** button at the bottom of the in-game menu to configure the mod.
+If you have [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098) installed, open the mod config from the title-screen cog (⚙) or **Mod options** in the pause menu.
+
+The config has three pages (links on the root screen):
+
+| Page             | Contents                                                                   |
+| :--------------- | :------------------------------------------------------------------------- |
+| **Main options** | Range pickup, sweeps, pathfinding, target lines, line colors, HUD messages |
+| **Item rules**   | Per-type automatic / manual collection toggles                             |
+| **Area rules**   | Per-location block automatic / block manual toggles                        |
+
+#### Main options
+
+| Setting                      | Default   | Description                                                   |
+| :--------------------------- | :-------- | :------------------------------------------------------------ |
+| Auto collect on range        | `false`   | Passive pickup within pickup radius while walking.            |
+| Pickup radius (tiles)        | `2`       | Radius for range pickup and range sweeps.                     |
+| Auto collect whole map       | `false`   | Auto-sweep when entering a location.                          |
+| Range sweep hotkey           | `F5`      | Start/stop range sweep.                                       |
+| Whole map sweep hotkey       | `F6`      | Start/stop whole-map sweep.                                   |
+| Use pathfinding              | `true`    | Walk to targets; `false` = snap (better for high speed mods). |
+| Return to start after sweep  | `false`   | Return to start tile when a sweep ends or is cancelled.       |
+| Show target lines            | `true`    | Draw lines to forageables that were not picked up.            |
+| Line range (tiles)           | `0`       | Max distance for lines; `0` = entire current map.             |
+| Lines: ground forage         | `true`    | Lines to ground forage and forage crops.                      |
+| Lines: berry bushes          | `true`    | Lines to berry and tea bushes.                                |
+| Lines: empty berry bushes    | `false`   | Lines to in-season bushes with no berries yet.                |
+| Lines: artifact spots        | `true`    | Lines to artifact and seed spots.                             |
+| Lines: panning spots         | `true`    | Lines to panning spots.                                       |
+| Line colors                  | see below | RGBA comma-separated values per line state.                   |
+| Show HUD messages            | `true`    | Master toggle for on-screen notifications.                    |
+| Notify when inventory full   | `true`    | Toast when inventory blocks pickup.                           |
+| Notify when tool missing     | `true`    | Toast when a required tool is missing.                        |
+| Notify when riding horse     | `true`    | Toast when collection is blocked on horseback.                |
+| Show XP in sweep summary     | `true`    | Include XP in the sweep-complete message.                     |
+| Show sweep started message   | `true`    | Toast when a sweep starts.                                    |
+| Show sweep cancelled message | `true`    | Toast when a sweep is cancelled.                              |
+
+Default line colors (RGBA):
+
+| State            | Default           |
+| :--------------- | :---------------- |
+| Ready to collect | `80,255,100,200`  |
+| Out of range     | `80,180,255,200`  |
+| Missing tool     | `255,210,50,220`  |
+| Inventory full   | `255,80,80,220`   |
+| Unreachable      | `160,160,160,200` |
+| Empty berry bush | `120,120,120,160` |
+
+#### Item rules
+
+Each forage type has **Automatic collection** and **Manual collection** toggles (all default `true`).
+
+#### Area rules
+
+Each listed location has **Block automatic collection** and **Block manual collection** toggles (default `false`, except mines block automatic collection by default).
 
 ### `config.json` file
 
-The mod creates a `config.json` file in its mod folder the first time you run it. You can open the file in a text editor like Notepad to configure the mod.
+The mod creates `config.json` in its mod folder on first run.
 
-Here's what you can change:
+#### Range pickup and sweeps
 
-- Range pickup and sweeps:
+| Key                         | Default | Description                   |
+| :-------------------------- | :------ | :---------------------------- |
+| `AutoCollectOnRange`        | `false` | Passive range pickup.         |
+| `PickupRadius`              | `2`     | Pickup radius in tiles.       |
+| `AutoCollectWholeMap`       | `false` | Auto-sweep on location enter. |
+| `RangeKey`                  | `F5`    | Range sweep hotkey.           |
+| `WholeMapKey`               | `F6`    | Whole-map sweep hotkey.       |
+| `UsePathfinding`            | `true`  | Walk vs snap during sweeps.   |
+| `ReturnToStartAfterSweep`   | `false` | Return to start after sweep.  |
+| `ShowSweepExperience`       | `true`  | XP in sweep-complete HUD.     |
+| `ShowSweepStartedMessage`   | `true`  | Sweep-started HUD message.    |
+| `ShowSweepCancelledMessage` | `true`  | Sweep-cancelled HUD message.  |
 
-  | Setting Name | Default Value | Description |
-  | :---------------------- | :------------ | :---------------------------------------------------------------- |
-  | `AutoCollectOnRange` | `false` | Auto-collect forageables within pickup radius while walking. |
-  | `PickupRadius` | `2` | Pickup radius in tiles (range pickup and range sweeps). |
-  | `AutoCollectWholeMap` | `false` | Auto-sweep when entering a location. |
-  | `RangeKey` | `F5` | Start or stop a forage sweep within pickup radius. |
-  | `WholeMapKey` | `F6` | Start or stop a whole-map forage sweep. |
-  | `ReturnToStartAfterSweep` | `false` | Return to start tile when a sweep finishes or is cancelled. |
-  | `UsePathfinding` | `true` | Walk to targets during sweep; `false` = instant snap. |
-  | `ShowSweepExperience` | `true` | Include XP gained in the sweep-complete HUD message. |
+#### Item rules
 
-- Collect target types:
+```json
+"ItemRules": {
+  "GroundForage": { "Auto": true, "Manual": true },
+  "Bushes": { "Auto": true, "Manual": true },
+  "ArtifactSpots": { "Auto": true, "Manual": true },
+  "Panning": { "Auto": true, "Manual": true }
+}
+```
 
-  | Setting Name | Default Value | Description |
-  | :--------------------- | :------------ | :-------------------------------------------------------------- |
-  | `CollectGroundForage` | `true` | Ground forage, spring onions, and similar forage crops. |
-  | `CollectBushes` | `true` | Berry bushes and tea bushes. |
-  | `CollectArtifactSpots` | `true` | Artifact and seed spots (hoe required). |
-  | `CollectPanning` | `true` | Panning spots (pan required). |
+#### Area rules (blocklist)
 
-- Target lines:
+```json
+"Areas": {
+  "Blocked": {
+    "UndergroundMine": { "Auto": true, "Manual": false }
+  }
+}
+```
 
-  | Setting Name | Default Value | Description |
-  | :------------------------ | :------------ | :---------------------------------------------------- |
-  | `ShowTargetLines` | `true` | Draw lines to forageables that were not picked up. |
-  | `LineRange` | `0` | Max tile distance for lines; `0` = entire current map. |
-  | `ShowLinesGroundForage` | `true` | Lines to ground forage and forage crops. |
-  | `ShowLinesBushes` | `true` | Lines to berry and tea bushes. |
-  | `ShowLinesEmptyBushes` | `false` | Lines to in-season bushes with no berries yet. |
-  | `ShowLinesArtifactSpots` | `true` | Lines to artifact and seed spots. |
-  | `ShowLinesPanning` | `true` | Lines to panning spots. |
+Only locations with a block entry (or mine defaults) are stored. `UndergroundMine` applies to all mine floors (`UndergroundMine1`, `UndergroundMine42`, etc.).
 
-- Line colors (RGBA, comma-separated):
+#### Target lines
 
-  | Setting Name | Default Value | Description |
-  | :---------------------- | :---------------- | :-------------------------------- |
-  | `ColorLineReady` | `80,255,100,200` | Ready to collect (in range). |
-  | `ColorLineOutOfRange` | `80,180,255,200` | In range of map but outside pickup radius. |
-  | `ColorLineMissingTool` | `255,210,50,220` | Missing required hoe or pan. |
-  | `ColorLineInventoryFull` | `255,80,80,220` | Inventory full. |
-  | `ColorLineUnreachable` | `160,160,160,200` | No valid path to collect. |
-  | `ColorLineEmptyBush` | `120,120,120,160` | In-season bush with no berries. |
+| Key                      | Default           |
+| :----------------------- | :---------------- |
+| `ShowTargetLines`        | `true`            |
+| `LineRange`              | `0`               |
+| `ShowLinesGroundForage`  | `true`            |
+| `ShowLinesBushes`        | `true`            |
+| `ShowLinesEmptyBushes`   | `false`           |
+| `ShowLinesArtifactSpots` | `true`            |
+| `ShowLinesPanning`       | `true`            |
+| `ColorLineReady`         | `80,255,100,200`  |
+| `ColorLineOutOfRange`    | `80,180,255,200`  |
+| `ColorLineMissingTool`   | `255,210,50,220`  |
+| `ColorLineInventoryFull` | `255,80,80,220`   |
+| `ColorLineUnreachable`   | `160,160,160,200` |
+| `ColorLineEmptyBush`     | `120,120,120,160` |
 
-- HUD messages:
+#### HUD messages
 
-  | Setting Name | Default Value | Description |
-  | :------------------- | :------------ | :---------------------------------------------- |
-  | `ShowHudMessages` | `true` | Show on-screen notifications. |
-  | `NotifyInventoryFull` | `true` | Toast when inventory blocks pickup. |
-  | `NotifyMissingTool` | `true` | Toast when a required tool is missing. |
-  | `NotifyRidingHorse` | `true` | Toast when a sweep is blocked while riding a horse. |
+| Key                   | Default |
+| :-------------------- | :------ |
+| `ShowHudMessages`     | `true`  |
+| `NotifyInventoryFull` | `true`  |
+| `NotifyMissingTool`   | `true`  |
+| `NotifyRidingHorse`   | `true`  |
 
 ## Compatibility
 
@@ -161,27 +253,27 @@ Requires [SMAPI](https://smapi.io/) 4.5.2 or later. [Generic Mod Config Menu](ht
 
 The mod can be translated into any language supported by the game.
 
-Contributions are welcome! See [Modding:Translations](https://stardewvalleywiki.com/Modding:Translations) on the wiki for help contributing translations.
+Contributions are welcome! See [Modding:Translations](https://stardewvalleywiki.com/Modding:Translations) on the wiki.
 
 (❑ = untranslated, ↻ = partly translated, ✓ = fully translated)
 
-| Language | Status | Code |
-| :------- | :----- | :--- |
-| English | [✓](ForageAutomator/i18n/default.json) | `default.json` and `en.json` |
-| Chinese | [❑](ForageAutomator/i18n/zh.json) | `zh.json` |
-| French | [❑](ForageAutomator/i18n/fr.json) | `fr.json` |
-| German | [❑](ForageAutomator/i18n/de.json) | `de.json` |
-| Hungarian | [❑](ForageAutomator/i18n/hu.json) | `hu.json` |
-| Italian | [❑](ForageAutomator/i18n/it.json) | `it.json` |
-| Japanese | [❑](ForageAutomator/i18n/ja.json) | `ja.json` |
-| Korean | [❑](ForageAutomator/i18n/ko.json) | `ko.json` |
-| [Polish] | [❑](ForageAutomator/i18n/pl.json) | `pl.json` |
-| Portuguese | [❑](ForageAutomator/i18n/pt.json) | `pt.json` |
-| Russian | [❑](ForageAutomator/i18n/ru.json) | `ru.json` |
-| Spanish | [❑](ForageAutomator/i18n/es.json) | `es.json` |
-| [Thai] | [❑](ForageAutomator/i18n/th.json) | `th.json` |
-| Turkish | [❑](ForageAutomator/i18n/tr.json) | `tr.json` |
-| [Ukrainian] | [❑](ForageAutomator/i18n/uk.json) | `uk.json` |
+| Language    | Status                                 | Code                         |
+| :---------- | :------------------------------------- | :--------------------------- |
+| English     | [✓](ForageAutomator/i18n/default.json) | `default.json` and `en.json` |
+| Chinese     | [❑](ForageAutomator/i18n/zh.json)      | `zh.json`                    |
+| French      | [❑](ForageAutomator/i18n/fr.json)      | `fr.json`                    |
+| German      | [❑](ForageAutomator/i18n/de.json)      | `de.json`                    |
+| Hungarian   | [❑](ForageAutomator/i18n/hu.json)      | `hu.json`                    |
+| Italian     | [❑](ForageAutomator/i18n/it.json)      | `it.json`                    |
+| Japanese    | [❑](ForageAutomator/i18n/ja.json)      | `ja.json`                    |
+| Korean      | [❑](ForageAutomator/i18n/ko.json)      | `ko.json`                    |
+| [Polish]    | [❑](ForageAutomator/i18n/pl.json)      | `pl.json`                    |
+| Portuguese  | [❑](ForageAutomator/i18n/pt.json)      | `pt.json`                    |
+| Russian     | [❑](ForageAutomator/i18n/ru.json)      | `ru.json`                    |
+| Spanish     | [❑](ForageAutomator/i18n/es.json)      | `es.json`                    |
+| [Thai]      | [❑](ForageAutomator/i18n/th.json)      | `th.json`                    |
+| Turkish     | [❑](ForageAutomator/i18n/tr.json)      | `tr.json`                    |
+| [Ukrainian] | [❑](ForageAutomator/i18n/uk.json)      | `uk.json`                    |
 
 [Polish]: https://www.nexusmods.com/stardewvalley/mods/3616
 [Thai]: https://www.nexusmods.com/stardewvalley/mods/7052
