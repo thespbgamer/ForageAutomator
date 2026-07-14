@@ -27,7 +27,7 @@ namespace ForageAutomator.Collectors
             int y = (int)target.Tile.Y;
             Crop crop = hoeDirt.crop;
 
-            if (crop.whichForageCrop.Value == "2")
+            if (ForageCropHelper.IsGinger(crop))
                 return CollectGinger(location, player, target, hoeDirt, crop, x, y);
 
             if (!hoeDirt.readyForHarvest())
@@ -57,10 +57,11 @@ namespace ForageAutomator.Collectors
                 if (!crop.hitWithHoe(x, y, location, hoeDirt))
                     return CollectResult.Failed;
 
-                int pickedUp = DebrisPickupHelper.CollectNearTile(location, player, target.Tile);
-                return pickedUp > 0 || !ForageCropHelper.IsHarvestable(hoeDirt)
-                    ? CollectResult.Success
-                    : CollectResult.Failed;
+                hoeDirt.destroyCrop(showAnimation: false);
+                DebrisPickupHelper.CollectNearTile(location, player, target.Tile);
+                ForageRewardHelper.GrantGingerHarvest(player);
+                Game1.playSound("harvest");
+                return CollectResult.Success;
             }
             finally
             {

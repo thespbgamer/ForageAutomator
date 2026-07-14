@@ -37,6 +37,8 @@ namespace ForageAutomator.Automation
             };
         }
 
+        public static bool IsGinger(Crop crop) => crop.whichForageCrop.Value == GingerCropId;
+
         public static bool TryGetAt(GameLocation location, Microsoft.Xna.Framework.Vector2 tile, out HoeDirt dirt)
         {
             if (location.terrainFeatures.TryGetValue(tile, out TerrainFeature feature)

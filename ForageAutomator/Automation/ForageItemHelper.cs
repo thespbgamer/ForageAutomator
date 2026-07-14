@@ -41,7 +41,7 @@ namespace ForageAutomator.Automation
             if (bonus is SObject bonusObj)
                 bonusObj.Quality = forageObj.Quality;
 
-            player.gainExperience(Farmer.foragingSkill, 3);
+            player.gainExperience(Farmer.foragingSkill, ForageRewardHelper.GathererBonusXp);
             if (player.addItemToInventory(bonus) != null)
                 Game1.createItemDebris(bonus, CollectionHelper.GetTileCenter(tile), -1, location, -1);
         }
@@ -53,8 +53,7 @@ namespace ForageAutomator.Automation
 
         public static bool DropsOnGround(ForageTarget target)
         {
-            return DropsOnGround(target.Type)
-                || (target.Type == ForageType.ForageCrop && target.RequiredTool == RequiredToolKind.Hoe);
+            return DropsOnGround(target.Type);
         }
     }
 

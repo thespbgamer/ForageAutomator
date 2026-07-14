@@ -295,6 +295,8 @@ namespace ForageAutomator.Automation
                     return false;
             }
 
+            ForageRewardHelper.GrantPanning(player, items);
+
             location.localSound("coin", panTile * Game1.tileSize);
             location.orePanPoint!.Value = Point.Zero;
 
