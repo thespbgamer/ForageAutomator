@@ -42,12 +42,8 @@ namespace ForageAutomator.Automation
 
         public static void FaceTarget(Farmer player, Vector2 targetTile)
         {
-            Vector2 diff = targetTile - player.Tile;
-
-            if (System.Math.Abs(diff.X) > System.Math.Abs(diff.Y))
-                player.faceDirection(diff.X > 0 ? 1 : 3);
-            else if (diff.Y != 0)
-                player.faceDirection(diff.Y > 0 ? 2 : 0);
+            Vector2 targetCenter = GetTileCenter(targetTile);
+            player.faceDirection(player.getGeneralDirectionTowards(targetCenter));
         }
 
         public static Vector2 GetTileCenter(Vector2 tile)

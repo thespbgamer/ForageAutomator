@@ -1,7 +1,6 @@
 using ForageAutomator.Automation;
 using StardewValley;
 using StardewValley.TerrainFeatures;
-using StardewValley.Tools;
 
 namespace ForageAutomator.Collectors
 {
@@ -28,7 +27,7 @@ namespace ForageAutomator.Collectors
             Crop crop = hoeDirt.crop;
 
             if (ForageCropHelper.IsGinger(crop))
-                return CollectGinger(location, player, target, hoeDirt, crop, x, y);
+                return CollectGinger(location, player, target, hoeDirt);
 
             if (!hoeDirt.readyForHarvest())
                 return CollectResult.Skipped;
@@ -42,31 +41,21 @@ namespace ForageAutomator.Collectors
             return CollectResult.Success;
         }
 
-        private static CollectResult CollectGinger(GameLocation location, Farmer player, ForageTarget target, HoeDirt hoeDirt, Crop crop, int x, int y)
+        private static CollectResult CollectGinger(GameLocation location, Farmer player, ForageTarget target, HoeDirt hoeDirt)
         {
-            Hoe? hoe = ToolHelper.FindHoe(player);
-            if (hoe == null)
+            if (!ToolHelper.HasHoe(player))
                 return CollectResult.MissingTool;
 
-            CollectionHelper.PreparePlayer(player, target.Tile);
+            if (!ToolHelper.UseHoeOnTile(location, player, target.Tile))
+                return CollectResult.MissingTool;
 
-            int previousSlot = ToolHelper.SelectTool(player, hoe);
-            try
-            {
-                hoe.lastUser = player;
-                if (!crop.hitWithHoe(x, y, location, hoeDirt))
-                    return CollectResult.Failed;
+            DebrisPickupHelper.CollectNearTile(location, player, target.Tile);
 
-                hoeDirt.destroyCrop(showAnimation: false);
-                DebrisPickupHelper.CollectNearTile(location, player, target.Tile);
-                ForageRewardHelper.GrantGingerHarvest(player);
-                Game1.playSound("harvest");
-                return CollectResult.Success;
-            }
-            finally
-            {
-                ToolHelper.RestoreToolSlot(player, previousSlot);
-            }
+            if (ForageCropHelper.IsHarvestable(hoeDirt))
+                return CollectResult.Failed;
+
+            Game1.playSound("harvest");
+            return CollectResult.Success;
         }
     }
 

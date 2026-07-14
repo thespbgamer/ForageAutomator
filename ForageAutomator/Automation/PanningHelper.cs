@@ -268,10 +268,7 @@ namespace ForageAutomator.Automation
 
         public static void ClearPanAnimationState(Farmer player)
         {
-            player.UsingTool = false;
-            player.FarmerSprite.PauseForSingleAnimation = false;
-            player.completelyStopAnimatingOrDoingAction();
-            Farmer.canMoveNow(player);
+            ToolAnimationHelper.Cancel(player);
         }
 
         public static bool TryExecutePan(GameLocation location, Farmer player, Pan pan, Vector2 panTile)
@@ -282,23 +279,8 @@ namespace ForageAutomator.Automation
             if (pan.UpgradeLevel <= 0)
                 pan.UpgradeLevel = 1;
 
-            pan.lastUser = player;
-            ClearPanAnimationState(player);
-
-            IList<Item> items = pan.getPanItems(location, player);
-            foreach (Item? item in items)
-            {
-                if (item == null)
-                    continue;
-
-                if (player.addItemToInventory(item) != null)
-                    return false;
-            }
-
-            ForageRewardHelper.GrantPanning(player, items);
-
-            location.localSound("coin", panTile * Game1.tileSize);
-            location.orePanPoint!.Value = Point.Zero;
+            PrepareForPanning(player, panTile);
+            ToolHelper.ExecuteToolFunction(location, player, pan);
 
             int extraRolls = pan.UpgradeLevel - 1;
             for (int roll = 0; roll < extraRolls; )
@@ -318,8 +300,7 @@ namespace ForageAutomator.Automation
                 roll++;
             }
 
-            ClearPanAnimationState(player);
-            return true;
+            return !IsActivePanTile(location, panTile);
         }
 
         private static bool CanInteractFromPosition(

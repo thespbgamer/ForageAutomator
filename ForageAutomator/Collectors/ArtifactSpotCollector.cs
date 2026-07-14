@@ -1,6 +1,5 @@
 using ForageAutomator.Automation;
 using StardewValley;
-using StardewValley.Tools;
 using SObject = StardewValley.Object;
 
 namespace ForageAutomator.Collectors
@@ -26,44 +25,30 @@ namespace ForageAutomator.Collectors
             if (!CollectionHelper.CanInteractWith(player, target.Tile))
                 return CollectResult.Failed;
 
-            Hoe? hoe = ToolHelper.FindHoe(player);
-            if (hoe == null)
+            if (!ToolHelper.UseHoeOnObject(location, player, obj, target.Tile))
                 return CollectResult.MissingTool;
 
-            CollectionHelper.PreparePlayer(player, target.Tile);
+            int pickedUp = DebrisPickupHelper.CollectNearTile(location, player, target.Tile);
+            bool spotRemoved = !location.objects.ContainsKey(target.Tile);
 
-            int previousSlot = ToolHelper.SelectTool(player, hoe);
-            try
+            if (spotRemoved)
             {
-                hoe.lastUser = player;
-                obj.performToolAction(hoe);
-
-                int pickedUp = DebrisPickupHelper.CollectNearTile(location, player, target.Tile);
-                bool spotRemoved = !location.objects.ContainsKey(target.Tile);
-
-                if (spotRemoved)
-                {
-                    if (pickedUp > 0)
-                        Game1.playSound("coin");
-                    else
-                        Game1.playSound("hoeHit");
-
-                    return CollectResult.Success;
-                }
-
                 if (pickedUp > 0)
-                {
-                    location.objects.Remove(target.Tile);
                     Game1.playSound("coin");
-                    return CollectResult.Success;
-                }
+                else
+                    Game1.playSound("hoeHit");
 
-                return CollectResult.Failed;
+                return CollectResult.Success;
             }
-            finally
+
+            if (pickedUp > 0)
             {
-                ToolHelper.RestoreToolSlot(player, previousSlot);
+                location.objects.Remove(target.Tile);
+                Game1.playSound("coin");
+                return CollectResult.Success;
             }
+
+            return CollectResult.Failed;
         }
     }
 
