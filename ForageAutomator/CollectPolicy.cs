@@ -24,8 +24,14 @@ namespace ForageAutomator
 
         public static bool IsTypeAllowed(ModConfig config, ForageType type, CollectScope scope)
         {
-            ScopeRule rule = config.ItemRules.GetRule(type);
-            return scope == CollectScope.Auto ? rule.Auto : rule.Manual;
+            if (type.IsOtherInteraction())
+            {
+                InteractionRule interactionRule = config.OtherInteractions.GetRule(type);
+                return scope == CollectScope.Auto ? interactionRule.Auto : interactionRule.Manual;
+            }
+
+            ScopeRule forageRule = config.ItemRules.GetRule(type);
+            return scope == CollectScope.Auto ? forageRule.Auto : forageRule.Manual;
         }
 
         public static bool ShouldCollect(ModConfig config, GameLocation location, ForageType type, CollectScope scope)

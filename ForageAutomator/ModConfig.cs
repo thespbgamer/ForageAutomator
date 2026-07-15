@@ -28,6 +28,8 @@ namespace ForageAutomator
 
         public ItemCollectConfig ItemRules { get; set; } = new();
 
+        public OtherInteractionsConfig OtherInteractions { get; set; } = new();
+
         public AreaCollectConfig Areas { get; set; } = new();
 
         public bool ShowTargetLines { get; set; } = true;
@@ -82,6 +84,7 @@ namespace ForageAutomator
             WholeMapKey = defaults.WholeMapKey;
             ShowSweepExperience = defaults.ShowSweepExperience;
             ItemRules.ResetToDefaults();
+            OtherInteractions.ResetToDefaults();
             Areas.ResetToDefaults();
             ShowTargetLines = defaults.ShowTargetLines;
             LineRange = defaults.LineRange;

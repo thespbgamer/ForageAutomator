@@ -218,6 +218,31 @@ namespace ForageAutomator.Automation
             return best;
         }
 
+        public static Vector2? FindNearbyStandTile(GameLocation location, Vector2 targetTile)
+        {
+            if (IsAdjacentOrOn(Game1.player.Tile, targetTile) && CanFarmerStandOn(location, Game1.player.Tile))
+                return Game1.player.Tile;
+
+            Vector2? best = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (Vector2 offset in StandOffsets)
+            {
+                Vector2 stand = targetTile + offset;
+                if (!CanFarmerStandOn(location, stand))
+                    continue;
+
+                float distance = Vector2.DistanceSquared(stand, Game1.player.Tile);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = stand;
+                }
+            }
+
+            return best;
+        }
+
         public static bool IsPathable(HashSet<Vector2> reachable, Vector2 standTile)
         {
             return reachable.Contains(standTile);

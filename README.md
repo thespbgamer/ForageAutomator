@@ -38,6 +38,7 @@ Item types and locations can be configured separately for each mode. Changes app
 
 - When **Use pathfinding** is enabled, sweeps walk to each target.
 - When disabled (or when moving very fast), the player snaps to each stand tile before collecting — recommended for 10x+ speed mods.
+- Reachability is not calculated when pathfinding is off or at high speed, which avoids an expensive full-map flood fill that would not be used anyway.
 
 ### Return to start
 
@@ -68,6 +69,27 @@ All types default to **on** for both automatic and manual collection.
 
 > [!NOTE]
 > Does **not** collect regular farm crops (parsnips, melons, wheat, etc.).
+
+### Other interactions
+
+Optional non-forage interactions on the **Other interactions** GMCM page. All types default to **off** for automatic collection, manual sweeps, and target lines.
+
+| Type | What it does | Tool |
+| :--- | :----------- | :--- |
+| Crab pots | Harvest ready pots | None |
+| Fruit trees | Shake when fruit is ready | None |
+| Processing machines | Keg, preserves jar, cheese press, loom, etc. | None |
+| Tappers | Normal and heavy tapper output | None |
+| Bee houses | Honey when ready | None |
+| Mushroom boxes & logs | Ready mushroom output | None |
+| Garbage cans | Once-per-day loot (per can) via vanilla `CheckGarbage` | None |
+| Hay (grass) | Cut grass for hay | Scythe |
+
+Garbage cans use the same loot rolls as clicking them yourself (vanilla `CheckGarbage`). Each can can only be checked **once per day** (`CheckedGarbage`). Loot spawns as ground debris; the mod pauses briefly at the can to pick it up (including when moving fast).
+
+**Skip when witnessed** (garbage cans only, default **on**): skip cans when a villager would see you dumpster dive (15×15 tile area around the player, using each NPC's dumpster-dive friendship effect from game data). Turn off to loot anyway — vanilla friendship loss still applies. Target lines use the NPC witness color when skip-when-witnessed is on and someone is watching.
+
+Each type has its own line color when ready to collect.
 
 ### Area rules (blocklist)
 
@@ -120,13 +142,14 @@ Load a save first. Then use:
 
 If you have [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098) installed, open the mod config from the title-screen cog (⚙) or **Mod options** in the pause menu.
 
-The config has three pages (links on the root screen):
+The config has four pages (links on the root screen):
 
-| Page             | Contents                                                                   |
-| :--------------- | :------------------------------------------------------------------------- |
-| **Main options** | Range pickup, sweeps, pathfinding, target lines, line colors, HUD messages |
-| **Item rules**   | Per-type automatic / manual collection toggles                             |
-| **Area rules**   | Per-location block automatic / block manual toggles                        |
+| Page                   | Contents                                                                   |
+| :--------------------- | :------------------------------------------------------------------------- |
+| **Main options**       | Range pickup, sweeps, pathfinding, target lines, line colors, HUD messages |
+| **Item rules**         | Per-type automatic / manual collection toggles                             |
+| **Area rules**         | Per-location block automatic / block manual toggles                        |
+| **Other interactions** | Crab pots, machines, garbage cans, and other non-forage automations        |
 
 #### Main options
 
@@ -137,7 +160,7 @@ The config has three pages (links on the root screen):
 | Auto collect whole map       | `false`   | Auto-sweep when entering a location.                          |
 | Range sweep hotkey           | `F5`      | Start/stop range sweep.                                       |
 | Whole map sweep hotkey       | `F6`      | Start/stop whole-map sweep.                                   |
-| Use pathfinding              | `true`    | Walk to targets; `false` = snap (better for high speed mods). |
+| Use pathfinding              | `true`    | Walk to targets; `false` = snap (better for high speed mods). Skips reachability calculation when off or at high speed. |
 | Return to start after sweep  | `false`   | Return to start tile when a sweep ends or is cancelled.       |
 | Show target lines            | `true`    | Draw lines to forageables that were not picked up.            |
 | Line range (tiles)           | `0`       | Max distance for lines; `0` = entire current map.             |
@@ -165,6 +188,7 @@ Default line colors (RGBA):
 | Inventory full   | `255,80,80,220`   |
 | Unreachable      | `160,160,160,200` |
 | Empty berry bush | `120,120,120,160` |
+| NPC witness      | `255,120,120,220` |
 
 #### Item rules
 
@@ -173,6 +197,10 @@ Each forage type has **Automatic collection** and **Manual collection** toggles 
 #### Area rules
 
 Each listed location has **Block automatic collection** and **Block manual collection** toggles (default `false`, except mines block automatic collection by default).
+
+#### Other interactions
+
+Each non-forage type has **Automatic collection**, **Manual collection**, and **Show lines** toggles (all default `false`). Garbage cans also have **Skip when witnessed** (default `true`); see [Other interactions](#other-interactions) above.
 
 ### `config.json` file
 
@@ -187,7 +215,7 @@ The mod creates `config.json` in its mod folder on first run.
 | `AutoCollectWholeMap`       | `false` | Auto-sweep on location enter. |
 | `RangeKey`                  | `F5`    | Range sweep hotkey.           |
 | `WholeMapKey`               | `F6`    | Whole-map sweep hotkey.       |
-| `UsePathfinding`            | `true`  | Walk vs snap during sweeps.   |
+| `UsePathfinding`            | `true`  | Walk vs snap during sweeps. Skips reachability calculation when `false`. |
 | `ReturnToStartAfterSweep`   | `false` | Return to start after sweep.  |
 | `ShowSweepExperience`       | `true`  | XP in sweep-complete HUD.     |
 | `ShowSweepStartedMessage`   | `true`  | Sweep-started HUD message.    |
@@ -233,6 +261,25 @@ Only locations with a block entry (or mine defaults) are stored. `UndergroundMin
 | `ColorLineInventoryFull` | `255,80,80,220`   |
 | `ColorLineUnreachable`   | `160,160,160,200` |
 | `ColorLineEmptyBush`     | `120,120,120,160` |
+
+NPC witness lines for garbage cans use `255,120,120,220` (not a separate config key).
+
+#### Other interactions
+
+Each entry under `OtherInteractions` has `Auto`, `Manual`, `ShowLines`, and `LineColor`. All default to `false` except line colors (per-type defaults in GMCM). Garbage cans also support `BlockWhenWitnessed` (default `true`).
+
+```json
+"OtherInteractions": {
+  "CrabPots": { "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "255,140,60,200" },
+  "FruitTrees": { "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "200,120,255,200" },
+  "Machines": { "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "160,200,255,200" },
+  "Tappers": { "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "180,140,80,200" },
+  "BeeHouses": { "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "255,220,80,200" },
+  "MushroomBoxes": { "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "140,200,120,200" },
+  "GarbageCans": { "BlockWhenWitnessed": true, "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "200,200,200,200" },
+  "HayGrass": { "Auto": false, "Manual": false, "ShowLines": false, "LineColor": "220,180,100,200" }
+}
+```
 
 #### HUD messages
 

@@ -71,11 +71,16 @@ namespace ForageAutomator.Automation
             return true;
         }
 
-        public static bool TrySnapForInteraction(GameLocation location, Farmer player, Bush bush, Vector2 preferredStand)
+        public static bool TrySnapForInteraction(
+            GameLocation location,
+            Farmer player,
+            Bush bush,
+            Vector2 preferredStand,
+            bool usePathfinding = true)
         {
-            foreach (BushInteraction interaction in GetRankedInteractions(location, player, bush, preferredStand))
+            foreach (BushInteraction interaction in GetRankedInteractions(location, player, bush, preferredStand, usePathfinding))
             {
-                if (!MovementHelper.TrySnapToStandTile(location, player, interaction.StandTile))
+                if (!MovementHelper.TrySnapToStandTile(location, player, interaction.StandTile, usePathfinding))
                     continue;
 
                 CollectionHelper.PreparePlayer(player, interaction.FaceTile);
@@ -93,12 +98,17 @@ namespace ForageAutomator.Automation
             return TryGetInteractionFromStand(location, player.Tile, bush, out faceTile, out facing);
         }
 
-        public static Vector2? FindStandTile(GameLocation location, Farmer player, Bush bush, HashSet<Vector2> reachable)
+        public static Vector2? FindStandTile(
+            GameLocation location,
+            Farmer player,
+            Bush bush,
+            HashSet<Vector2>? reachable,
+            bool usePathfinding)
         {
             BushInteraction? best = null;
             float bestDistance = float.MaxValue;
 
-            foreach (BushInteraction interaction in GetInteractions(location, bush, reachable))
+            foreach (BushInteraction interaction in GetInteractions(location, bush, reachable, usePathfinding))
             {
                 float distance = Vector2.DistanceSquared(interaction.StandTile, player.Tile);
                 if (distance >= bestDistance)
@@ -141,10 +151,10 @@ namespace ForageAutomator.Automation
             return GetClosestOccupiedTile(player.Tile, bush);
         }
 
-        public static void SnapForBush(GameLocation location, Farmer player, Bush bush, Vector2 preferredStand)
+        public static void SnapForBush(GameLocation location, Farmer player, Bush bush, Vector2 preferredStand, bool usePathfinding = true)
         {
-            if (!TrySnapForInteraction(location, player, bush, preferredStand))
-                MovementHelper.TrySnapToStandTile(location, player, preferredStand);
+            if (!TrySnapForInteraction(location, player, bush, preferredStand, usePathfinding))
+                MovementHelper.TrySnapToStandTile(location, player, preferredStand, usePathfinding);
         }
 
         public static bool TryGetAt(GameLocation location, Vector2 tile, out Bush bush)
@@ -169,11 +179,14 @@ namespace ForageAutomator.Automation
             GameLocation location,
             Farmer player,
             Bush bush,
-            Vector2 preferredStand)
+            Vector2 preferredStand,
+            bool usePathfinding = true)
         {
-            HashSet<Vector2> reachable = WalkabilityHelper.GetReachableTiles(location, player.Tile);
+            HashSet<Vector2>? reachable = usePathfinding
+                ? WalkabilityHelper.GetReachableTiles(location, player.Tile)
+                : null;
 
-            return GetInteractions(location, bush, reachable)
+            return GetInteractions(location, bush, reachable, usePathfinding)
                 .OrderBy(interaction => Vector2.DistanceSquared(interaction.StandTile, preferredStand))
                 .ThenBy(interaction => Vector2.DistanceSquared(interaction.StandTile, player.Tile));
         }
@@ -181,7 +194,8 @@ namespace ForageAutomator.Automation
         private static IEnumerable<BushInteraction> GetInteractions(
             GameLocation location,
             Bush bush,
-            HashSet<Vector2> reachable)
+            HashSet<Vector2>? reachable,
+            bool usePathfinding = true)
         {
             var seen = new HashSet<Vector2>();
             HashSet<Vector2> occupied = GetOccupiedTileSet(bush);
@@ -194,8 +208,15 @@ namespace ForageAutomator.Automation
                     if (occupied.Contains(stand) || !seen.Add(stand))
                         continue;
 
-                    if (!reachable.Contains(stand))
+                    if (usePathfinding)
+                    {
+                        if (reachable == null || !reachable.Contains(stand))
+                            continue;
+                    }
+                    else if (!WalkabilityHelper.CanFarmerStandOn(location, stand))
+                    {
                         continue;
+                    }
 
                     if (!TryGetInteractionFromStand(location, stand, bush, out Vector2 faceTile, out int facing))
                         continue;

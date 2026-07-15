@@ -33,9 +33,16 @@ namespace ForageAutomator
                 text: () => translation.Get("config.page.areas.link"),
                 tooltip: () => translation.Get("config.page.areas.link.tooltip"));
 
+            api.AddPageLink(
+                mod: manifest,
+                pageId: "other-interactions",
+                text: () => translation.Get("config.page.other-interactions.link"),
+                tooltip: () => translation.Get("config.page.other-interactions.link.tooltip"));
+
             RegisterMainPage(api, helper, config, manifest);
             RegisterItemsPage(api, helper, config, manifest);
             RegisterAreasPage(api, helper, config, manifest);
+            RegisterOtherInteractionsPage(api, helper, config, manifest);
         }
 
         private static void RegisterMainPage(
@@ -240,6 +247,103 @@ namespace ForageAutomator
                 setValue: value => config.ShowSweepCancelledMessage = value,
                 name: () => translation.Get("config.show-sweep-cancelled-message.name"),
                 tooltip: () => translation.Get("config.show-sweep-cancelled-message.tooltip"));
+        }
+
+        private static void RegisterOtherInteractionsPage(
+            IGenericModConfigMenuApi api,
+            IModHelper helper,
+            ModConfig config,
+            IManifest manifest)
+        {
+            ITranslationHelper translation = helper.Translation;
+
+            api.AddPage(manifest, "other-interactions", () => translation.Get("config.page.other-interactions.title"));
+
+            api.AddParagraph(manifest, () => translation.Get("config.page.other-interactions.description"));
+
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "crab-pots", () => config.OtherInteractions.CrabPots, ConfigColor.DefaultCrabPot);
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "fruit-trees", () => config.OtherInteractions.FruitTrees, ConfigColor.DefaultFruitTree);
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "machines", () => config.OtherInteractions.Machines, ConfigColor.DefaultMachine);
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "tappers", () => config.OtherInteractions.Tappers, ConfigColor.DefaultTapper);
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "bee-houses", () => config.OtherInteractions.BeeHouses, ConfigColor.DefaultBeeHouse);
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "mushroom-boxes", () => config.OtherInteractions.MushroomBoxes, ConfigColor.DefaultMushroomBox);
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "garbage-cans", () => config.OtherInteractions.GarbageCans, ConfigColor.DefaultGarbageCan, showWitnessBlock: true);
+            RegisterOtherInteractionOptions(api, manifest, translation, config, "hay-grass", () => config.OtherInteractions.HayGrass, ConfigColor.DefaultHay);
+        }
+
+        private static void RegisterOtherInteractionOptions(
+            IGenericModConfigMenuApi api,
+            IManifest manifest,
+            ITranslationHelper translation,
+            ModConfig config,
+            string key,
+            Func<InteractionRule> getRule,
+            string defaultColor,
+            bool showWitnessBlock = false)
+        {
+            api.AddSectionTitle(manifest, () => translation.Get($"config.other-interactions.{key}.section"));
+
+            string prefix = $"OtherInteractions.{ToPascalKey(key)}";
+
+            if (showWitnessBlock)
+            {
+                api.AddBoolOption(
+                    mod: manifest,
+                    getValue: () => getRule().BlockWhenWitnessed,
+                    setValue: value => getRule().BlockWhenWitnessed = value,
+                    name: () => translation.Get("config.other-interactions.block-when-witnessed.name"),
+                    tooltip: () => translation.Get($"config.other-interactions.{key}.block-when-witnessed.tooltip"),
+                    fieldId: $"{prefix}.BlockWhenWitnessed");
+            }
+
+            api.AddBoolOption(
+                mod: manifest,
+                getValue: () => getRule().Auto,
+                setValue: value => getRule().Auto = value,
+                name: () => translation.Get("config.other-interactions.auto.name"),
+                tooltip: () => translation.Get($"config.other-interactions.{key}.auto.tooltip"),
+                fieldId: $"{prefix}.Auto");
+
+            api.AddBoolOption(
+                mod: manifest,
+                getValue: () => getRule().Manual,
+                setValue: value => getRule().Manual = value,
+                name: () => translation.Get("config.other-interactions.manual.name"),
+                tooltip: () => translation.Get($"config.other-interactions.{key}.manual.tooltip"),
+                fieldId: $"{prefix}.Manual");
+
+            api.AddBoolOption(
+                mod: manifest,
+                getValue: () => getRule().ShowLines,
+                setValue: value => getRule().ShowLines = value,
+                name: () => translation.Get("config.other-interactions.show-lines.name"),
+                tooltip: () => translation.Get($"config.other-interactions.{key}.show-lines.tooltip"),
+                fieldId: $"{prefix}.ShowLines");
+
+            RegisterLineColorOption(
+                api,
+                manifest,
+                translation,
+                () => getRule().LineColor,
+                value => getRule().LineColor = value,
+                $"config.other-interactions.{key}.line-color.name",
+                defaultColor);
+        }
+
+        private static string ToPascalKey(string key)
+        {
+            return key switch
+            {
+                "crab-pots" => "CrabPots",
+                "fruit-trees" => "FruitTrees",
+                "machines" => "Machines",
+                "tappers" => "Tappers",
+                "bee-houses" => "BeeHouses",
+                "mushroom-boxes" => "MushroomBoxes",
+                "garbage-cans" => "GarbageCans",
+                "hay-grass" => "HayGrass",
+                _ => key
+            };
         }
 
         private static void RegisterLineColorOption(

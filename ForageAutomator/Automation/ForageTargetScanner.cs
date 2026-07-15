@@ -23,6 +23,14 @@ namespace ForageAutomator.Automation
             ScanForageCrops(location, playerTile, maxRadius, targets);
             ScanBushes(location, playerTile, maxRadius, targets);
             ScanPanningSpot(location, playerTile, maxRadius, targets);
+            ScanCrabPots(location, playerTile, maxRadius, targets);
+            ScanFruitTrees(location, playerTile, maxRadius, targets);
+            ScanMachines(location, playerTile, maxRadius, targets);
+            ScanTappers(location, playerTile, maxRadius, targets);
+            ScanBeeHouses(location, playerTile, maxRadius, targets);
+            ScanMushroomBoxes(location, playerTile, maxRadius, targets);
+            ScanGarbageCans(location, playerTile, maxRadius, targets);
+            ScanHayGrass(location, playerTile, maxRadius, targets);
 
             if (maxRadius.HasValue)
             {
@@ -149,6 +157,171 @@ namespace ForageAutomator.Automation
             });
         }
 
+        private static void ScanCrabPots(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach ((Vector2 tile, SObject obj) in location.objects.Pairs)
+            {
+                if (!CrabPotHelper.IsHarvestable(obj))
+                    continue;
+
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = tile,
+                    Type = ForageType.CrabPot,
+                    RequiredTool = RequiredToolKind.None,
+                    Source = obj,
+                    DisplayName = obj.DisplayName
+                });
+            }
+        }
+
+        private static void ScanFruitTrees(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach ((Vector2 tile, TerrainFeature feature) in location.terrainFeatures.Pairs)
+            {
+                if (feature is not FruitTree tree || !FruitTreeHelper.IsHarvestable(tree))
+                    continue;
+
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = tile,
+                    Type = ForageType.FruitTree,
+                    RequiredTool = RequiredToolKind.None,
+                    Source = tree,
+                    DisplayName = tree.GetDisplayName()
+                });
+            }
+        }
+
+        private static void ScanMachines(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach ((Vector2 tile, SObject obj) in location.objects.Pairs)
+            {
+                if (!MachineHelper.IsHarvestable(obj))
+                    continue;
+
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = tile,
+                    Type = ForageType.Machine,
+                    RequiredTool = RequiredToolKind.None,
+                    Source = obj,
+                    DisplayName = obj.DisplayName
+                });
+            }
+        }
+
+        private static void ScanTappers(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach ((Vector2 tile, SObject obj) in location.objects.Pairs)
+            {
+                if (!TapperHelper.IsHarvestable(obj))
+                    continue;
+
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = tile,
+                    Type = ForageType.Tapper,
+                    RequiredTool = RequiredToolKind.None,
+                    Source = obj,
+                    DisplayName = obj.DisplayName
+                });
+            }
+        }
+
+        private static void ScanBeeHouses(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach ((Vector2 tile, SObject obj) in location.objects.Pairs)
+            {
+                if (!BeeHouseHelper.IsHarvestable(obj))
+                    continue;
+
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = tile,
+                    Type = ForageType.BeeHouse,
+                    RequiredTool = RequiredToolKind.None,
+                    Source = obj,
+                    DisplayName = obj.DisplayName
+                });
+            }
+        }
+
+        private static void ScanMushroomBoxes(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach ((Vector2 tile, SObject obj) in location.objects.Pairs)
+            {
+                if (!MushroomBoxHelper.IsHarvestable(obj))
+                    continue;
+
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = tile,
+                    Type = ForageType.MushroomBox,
+                    RequiredTool = RequiredToolKind.None,
+                    Source = obj,
+                    DisplayName = obj.DisplayName
+                });
+            }
+        }
+
+        private static void ScanGarbageCans(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach (GarbageCanInfo can in GarbageCanHelper.GetGarbageCans(location))
+            {
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, can.Tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = can.Tile,
+                    Type = ForageType.GarbageCan,
+                    RequiredTool = RequiredToolKind.None,
+                    Source = can,
+                    DisplayName = "garbage can"
+                });
+            }
+        }
+
+        private static void ScanHayGrass(GameLocation location, Vector2 playerTile, int? maxRadius, List<ForageTarget> targets)
+        {
+            foreach ((Vector2 tile, TerrainFeature feature) in location.terrainFeatures.Pairs)
+            {
+                if (feature is not Grass grass || !HayGrassHelper.IsHarvestable(location, tile, grass))
+                    continue;
+
+                if (maxRadius.HasValue && !WalkabilityHelper.IsWithinRadius(playerTile, tile, maxRadius.Value))
+                    continue;
+
+                targets.Add(new ForageTarget
+                {
+                    Tile = tile,
+                    Type = ForageType.HayGrass,
+                    RequiredTool = RequiredToolKind.Scythe,
+                    Source = grass,
+                    DisplayName = "grass"
+                });
+            }
+        }
+
         private static bool IsGroundForage(SObject obj)
         {
             if (obj.IsSpawnedObject)
@@ -167,9 +340,16 @@ namespace ForageAutomator.Automation
 
         private static bool IsArtifactSpot(SObject obj) => IsArtifactSpotObject(obj);
 
-        public void ApplyReachability(GameLocation location, Farmer player, IEnumerable<ForageTarget> targets)
+        public void ApplyReachability(
+            GameLocation location,
+            Farmer player,
+            IEnumerable<ForageTarget> targets,
+            bool usePathfinding,
+            bool blockGarbageWhenWitnessed)
         {
-            HashSet<Vector2> reachable = WalkabilityHelper.GetReachableTiles(location, player.Tile);
+            HashSet<Vector2>? reachable = usePathfinding
+                ? WalkabilityHelper.GetReachableTiles(location, player.Tile)
+                : null;
 
             foreach (ForageTarget target in targets)
             {
@@ -190,7 +370,9 @@ namespace ForageAutomator.Automation
                         continue;
                     }
 
-                    Vector2? panStand = PanningHelper.FindStandTile(location, player, target.Tile, reachable, pan);
+                    Vector2? panStand = usePathfinding && reachable != null
+                        ? PanningHelper.FindStandTile(location, player, target.Tile, reachable, pan)
+                        : PanningHelper.FindStandTileAnywhere(location, player, target.Tile, pan);
                     if (!panStand.HasValue)
                     {
                         target.SkipReason = SkipReason.Unreachable;
@@ -201,6 +383,50 @@ namespace ForageAutomator.Automation
                     continue;
                 }
 
+                if (target.Type == ForageType.GarbageCan)
+                {
+                    if (GarbageCanHelper.ShouldBlockWitness(blockGarbageWhenWitnessed, location, player))
+                        target.SkipReason = SkipReason.NpcWitness;
+
+                    if (WalkabilityHelper.IsAdjacentOrOn(player.Tile, target.Tile))
+                    {
+                        target.StandTile = player.Tile;
+                        continue;
+                    }
+
+                    Vector2? garbageStand = usePathfinding && reachable != null
+                        ? WalkabilityHelper.FindStandTile(location, target.Tile, reachable)
+                        : WalkabilityHelper.FindNearbyStandTile(location, target.Tile);
+                    if (!garbageStand.HasValue && target.SkipReason != SkipReason.NpcWitness)
+                        target.SkipReason = SkipReason.Unreachable;
+
+                    if (garbageStand.HasValue)
+                        target.StandTile = garbageStand.Value;
+
+                    continue;
+                }
+
+                if (target.Type.IsOtherInteraction())
+                {
+                    if (WalkabilityHelper.IsAdjacentOrOn(player.Tile, target.Tile))
+                    {
+                        target.StandTile = player.Tile;
+                        continue;
+                    }
+
+                    Vector2? interactionStand = usePathfinding && reachable != null
+                        ? WalkabilityHelper.FindStandTile(location, target.Tile, reachable)
+                        : WalkabilityHelper.FindNearbyStandTile(location, target.Tile);
+                    if (!interactionStand.HasValue)
+                    {
+                        target.SkipReason = SkipReason.Unreachable;
+                        continue;
+                    }
+
+                    target.StandTile = interactionStand.Value;
+                    continue;
+                }
+
                 if (WalkabilityHelper.IsAdjacentOrOn(player.Tile, target.Tile))
                 {
                     target.StandTile = player.Tile;
@@ -208,8 +434,10 @@ namespace ForageAutomator.Automation
                 }
 
                 Vector2? stand = target.Type == ForageType.Bush && target.Source is Bush bushTarget
-                    ? BushHelper.FindStandTile(location, player, bushTarget, reachable)
-                    : WalkabilityHelper.FindStandTile(location, target.Tile, reachable);
+                    ? BushHelper.FindStandTile(location, player, bushTarget, reachable, usePathfinding)
+                    : usePathfinding && reachable != null
+                        ? WalkabilityHelper.FindStandTile(location, target.Tile, reachable)
+                        : WalkabilityHelper.FindNearbyStandTile(location, target.Tile);
 
                 if (!stand.HasValue)
                 {

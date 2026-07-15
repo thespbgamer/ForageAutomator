@@ -48,7 +48,7 @@ namespace ForageAutomator.Automation
 
         public static bool DropsOnGround(ForageType type)
         {
-            return type is ForageType.Bush or ForageType.ArtifactSpot;
+            return type is ForageType.Bush or ForageType.ArtifactSpot or ForageType.GarbageCan;
         }
 
         public static bool DropsOnGround(ForageTarget target)

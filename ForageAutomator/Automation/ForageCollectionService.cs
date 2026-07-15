@@ -8,11 +8,13 @@ namespace ForageAutomator.Automation
 {
     internal sealed class ForageCollectionService
     {
+        private readonly ModConfig config;
         private readonly IReadOnlyList<IForageCollector> collectors;
         private readonly HudNotifier notifier;
 
-        public ForageCollectionService(HudNotifier notifier)
+        public ForageCollectionService(ModConfig config, HudNotifier notifier)
         {
+            this.config = config;
             this.notifier = notifier;
             collectors = new IForageCollector[]
             {
@@ -20,7 +22,15 @@ namespace ForageAutomator.Automation
                 new ForageCropCollector(),
                 new BushCollector(),
                 new ArtifactSpotCollector(),
-                new PanningCollector()
+                new PanningCollector(),
+                new CrabPotCollector(),
+                new FruitTreeCollector(),
+                new MachineCollector(),
+                new TapperCollector(),
+                new BeeHouseCollector(),
+                new MushroomBoxCollector(),
+                new GarbageCanCollector(),
+                new HayGrassCollector()
             };
         }
 
@@ -38,6 +48,13 @@ namespace ForageAutomator.Automation
                 target.SkipReason = SkipReason.InventoryFull;
                 notifier.ShowInventoryFull();
                 return CollectResult.InventoryFull;
+            }
+
+            if (target.Type == ForageType.GarbageCan
+                && GarbageCanHelper.ShouldBlockWitness(config.OtherInteractions.GarbageCans.BlockWhenWitnessed, location, player))
+            {
+                target.SkipReason = SkipReason.NpcWitness;
+                return CollectResult.Skipped;
             }
 
             foreach (IForageCollector collector in collectors)

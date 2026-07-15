@@ -23,6 +23,9 @@ namespace ForageAutomator
 
         public static bool IsEnabledForLines(ModConfig config, ForageType type)
         {
+            if (type.IsOtherInteraction())
+                return config.OtherInteractions.GetRule(type).ShowLines;
+
             return type switch
             {
                 ForageType.Ground or ForageType.ForageCrop => config.ShowLinesGroundForage,

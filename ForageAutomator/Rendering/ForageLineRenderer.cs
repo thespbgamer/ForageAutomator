@@ -111,7 +111,7 @@ namespace ForageAutomator.Rendering
                     continue;
 
                 Vector2 targetWorld = GetTargetWorldCenter(target);
-                Color color = GetLineColor(target.SkipReason);
+                Color color = GetLineColor(target);
 
                 OverlayDrawHelper.DrawLine(spriteBatch, playerWorld, targetWorld, color);
                 OverlayDrawHelper.DrawMarker(spriteBatch, targetWorld, color);
@@ -228,6 +228,14 @@ namespace ForageAutomator.Rendering
                 return;
             }
 
+            if (target.Type == ForageType.GarbageCan
+                && config.OtherInteractions.GarbageCans.BlockWhenWitnessed
+                && GarbageCanHelper.HasWitnessingNpc(Game1.currentLocation, player))
+            {
+                target.SkipReason = SkipReason.NpcWitness;
+                return;
+            }
+
             if (target.SkipReason == SkipReason.Unreachable)
             {
                 if (target.Type == ForageType.Panning
@@ -292,13 +300,21 @@ namespace ForageAutomator.Rendering
                 ForageType.Ground or ForageType.ArtifactSpot => location.objects.ContainsKey(target.Tile),
                 ForageType.ForageCrop => ForageCropHelper.TryGetAt(location, target.Tile, out _),
                 ForageType.Panning => PanningHelper.IsActivePanTile(location, target.Tile),
+                ForageType.CrabPot => CrabPotHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.FruitTree => FruitTreeHelper.TryGetAt(location, target.Tile, out FruitTree? tree) && FruitTreeHelper.IsHarvestable(tree),
+                ForageType.Machine => MachineHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.Tapper => TapperHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.BeeHouse => BeeHouseHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.MushroomBox => MushroomBoxHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.GarbageCan => target.Source is GarbageCanInfo can && GarbageCanHelper.CanCheckToday(can.Id),
+                ForageType.HayGrass => HayGrassHelper.TryGetAt(location, target.Tile, out Grass? grass) && HayGrassHelper.IsHarvestable(location, target.Tile, grass),
                 _ => false
             };
         }
 
-        private Color GetLineColor(SkipReason reason)
+        private Color GetLineColor(ForageTarget target)
         {
-            return reason switch
+            return target.SkipReason switch
             {
                 SkipReason.InventoryFull => ConfigColor.Parse(config.ColorLineInventoryFull, ConfigColor.InventoryFull),
                 SkipReason.MissingTool => ConfigColor.Parse(config.ColorLineMissingTool, ConfigColor.MissingTool),
@@ -306,6 +322,9 @@ namespace ForageAutomator.Rendering
                 SkipReason.OutOfRange => ConfigColor.Parse(config.ColorLineOutOfRange, ConfigColor.OutOfRange),
                 SkipReason.OnHorse => ConfigColor.Parse(config.ColorLineOutOfRange, ConfigColor.OutOfRange),
                 SkipReason.EmptyBush => ConfigColor.Parse(config.ColorLineEmptyBush, ConfigColor.EmptyBush),
+                SkipReason.NpcWitness => ConfigColor.NpcWitness,
+                SkipReason.None when target.Type.IsOtherInteraction() =>
+                    ConfigColor.Parse(config.OtherInteractions.GetRule(target.Type).LineColor, ConfigColor.Ready),
                 _ => ConfigColor.Parse(config.ColorLineReady, ConfigColor.Ready)
             };
         }

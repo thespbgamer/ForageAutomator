@@ -18,8 +18,26 @@ namespace ForageAutomator.Automation
             return player.isRidingHorse();
         }
 
-        public static bool TrySnapToStandTile(GameLocation location, Farmer player, Vector2 standTile)
+        public static bool ShouldUsePathfinding(ModConfig config, Farmer player, ref Vector2 lastPosition, bool hasLastPosition)
         {
+            return config.UsePathfinding && !IsHighSpeedMovement(player, ref lastPosition, hasLastPosition);
+        }
+
+        public static bool TrySnapToStandTile(GameLocation location, Farmer player, Vector2 standTile, bool usePathfinding = true)
+        {
+            if (!usePathfinding)
+            {
+                Vector2 nearbyStand = ResolveNearbyStandTile(location, standTile);
+                if (!WalkabilityHelper.CanFarmerStandOn(location, nearbyStand))
+                    return false;
+
+                player.controller = null;
+                player.setTileLocation(nearbyStand);
+                CollectionHelper.FaceTarget(player, standTile);
+                ReleasePlayerControlIfNeeded(player);
+                return true;
+            }
+
             HashSet<Vector2> reachable = WalkabilityHelper.GetReachableTiles(location, player.Tile);
             Vector2 resolved = ResolveReachableStandTile(location, player, standTile, reachable);
             if (!reachable.Contains(resolved))
@@ -32,10 +50,10 @@ namespace ForageAutomator.Automation
             return true;
         }
 
-        public static void SnapToStandTile(Farmer player, Vector2 standTile)
+        public static void SnapToStandTile(Farmer player, Vector2 standTile, bool usePathfinding = true)
         {
             GameLocation location = Game1.currentLocation;
-            if (!TrySnapToStandTile(location, player, standTile))
+            if (!TrySnapToStandTile(location, player, standTile, usePathfinding))
                 ReleasePlayerControlIfNeeded(player);
         }
 
@@ -92,6 +110,43 @@ namespace ForageAutomator.Automation
                             continue;
 
                         if (!reachable.Contains(candidate))
+                            continue;
+
+                        float distance = Vector2.DistanceSquared(candidate, preferredTile);
+                        if (distance >= bestDistance)
+                            continue;
+
+                        bestDistance = distance;
+                        best = candidate;
+                    }
+                }
+
+                if (best.HasValue)
+                    return best.Value;
+            }
+
+            return preferredTile;
+        }
+
+        private static Vector2 ResolveNearbyStandTile(GameLocation location, Vector2 preferredTile)
+        {
+            if (WalkabilityHelper.CanFarmerStandOn(location, preferredTile))
+                return preferredTile;
+
+            Vector2? best = null;
+            float bestDistance = float.MaxValue;
+
+            for (int radius = 1; radius <= 2; radius++)
+            {
+                for (int x = -radius; x <= radius; x++)
+                {
+                    for (int y = -radius; y <= radius; y++)
+                    {
+                        if (x == 0 && y == 0)
+                            continue;
+
+                        Vector2 candidate = preferredTile + new Vector2(x, y);
+                        if (!WalkabilityHelper.CanFarmerStandOn(location, candidate))
                             continue;
 
                         float distance = Vector2.DistanceSquared(candidate, preferredTile);

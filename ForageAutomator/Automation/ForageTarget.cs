@@ -8,14 +8,23 @@ namespace ForageAutomator.Automation
         ForageCrop,
         Bush,
         ArtifactSpot,
-        Panning
+        Panning,
+        CrabPot,
+        FruitTree,
+        Machine,
+        Tapper,
+        BeeHouse,
+        MushroomBox,
+        GarbageCan,
+        HayGrass
     }
 
     public enum RequiredToolKind
     {
         None,
         Hoe,
-        CopperPan
+        CopperPan,
+        Scythe
     }
 
     public enum SkipReason
@@ -26,7 +35,8 @@ namespace ForageAutomator.Automation
         Unreachable,
         OutOfRange,
         OnHorse,
-        EmptyBush
+        EmptyBush,
+        NpcWitness
     }
 
     public sealed class ForageTarget

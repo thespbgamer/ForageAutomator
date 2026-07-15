@@ -11,12 +11,23 @@ namespace ForageAutomator.Rendering
         public const string DefaultUnreachable = "160,160,160,200";
         public const string DefaultEmptyBush = "120,120,120,160";
 
+        public const string DefaultCrabPot = "255,140,60,200";
+        public const string DefaultFruitTree = "200,120,255,200";
+        public const string DefaultMachine = "160,200,255,200";
+        public const string DefaultTapper = "180,140,80,200";
+        public const string DefaultBeeHouse = "255,220,80,200";
+        public const string DefaultMushroomBox = "140,200,120,200";
+        public const string DefaultGarbageCan = "200,200,200,200";
+        public const string DefaultHay = "220,180,100,200";
+        public const string DefaultNpcWitness = "255,120,120,220";
+
         public static Color Ready => Parse(DefaultReady, Color.Lime);
         public static Color OutOfRange => Parse(DefaultOutOfRange, Color.CornflowerBlue);
         public static Color MissingTool => Parse(DefaultMissingTool, Color.Gold);
         public static Color InventoryFull => Parse(DefaultInventoryFull, Color.Red);
         public static Color Unreachable => Parse(DefaultUnreachable, Color.Gray);
         public static Color EmptyBush => Parse(DefaultEmptyBush, Color.DimGray);
+        public static Color NpcWitness => Parse(DefaultNpcWitness, Color.IndianRed);
 
         public static void Sanitize(ModConfig config)
         {
@@ -26,6 +37,20 @@ namespace ForageAutomator.Rendering
             config.ColorLineInventoryFull = SanitizeValue(config.ColorLineInventoryFull, DefaultInventoryFull);
             config.ColorLineUnreachable = SanitizeValue(config.ColorLineUnreachable, DefaultUnreachable);
             config.ColorLineEmptyBush = SanitizeValue(config.ColorLineEmptyBush, DefaultEmptyBush);
+
+            SanitizeInteractionRule(config.OtherInteractions.CrabPots, DefaultCrabPot);
+            SanitizeInteractionRule(config.OtherInteractions.FruitTrees, DefaultFruitTree);
+            SanitizeInteractionRule(config.OtherInteractions.Machines, DefaultMachine);
+            SanitizeInteractionRule(config.OtherInteractions.Tappers, DefaultTapper);
+            SanitizeInteractionRule(config.OtherInteractions.BeeHouses, DefaultBeeHouse);
+            SanitizeInteractionRule(config.OtherInteractions.MushroomBoxes, DefaultMushroomBox);
+            SanitizeInteractionRule(config.OtherInteractions.GarbageCans, DefaultGarbageCan);
+            SanitizeInteractionRule(config.OtherInteractions.HayGrass, DefaultHay);
+        }
+
+        private static void SanitizeInteractionRule(InteractionRule rule, string defaultColor)
+        {
+            rule.LineColor = SanitizeValue(rule.LineColor, defaultColor);
         }
 
         public static string SanitizeValue(string value, string defaultValue)

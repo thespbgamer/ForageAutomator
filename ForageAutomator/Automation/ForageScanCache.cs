@@ -11,10 +11,16 @@ namespace ForageAutomator.Automation
     internal sealed class ForageScanCache
     {
         private readonly ForageTargetScanner scanner = new();
+        private readonly ModConfig config;
         private List<ForageTarget> allTargets = new();
         private bool dirty = true;
         private bool justRefreshed;
         private string? locationName;
+
+        public ForageScanCache(ModConfig config)
+        {
+            this.config = config;
+        }
 
         public void Invalidate()
         {
@@ -69,7 +75,12 @@ namespace ForageAutomator.Automation
                 return;
 
             allTargets = scanner.Scan(location, player).ToList();
-            scanner.ApplyReachability(location, player, allTargets);
+            scanner.ApplyReachability(
+                location,
+                player,
+                allTargets,
+                config.UsePathfinding,
+                config.OtherInteractions.GarbageCans.BlockWhenWitnessed);
             locationName = currentLocation;
             dirty = false;
             justRefreshed = true;

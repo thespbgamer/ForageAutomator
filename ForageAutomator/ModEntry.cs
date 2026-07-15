@@ -25,7 +25,7 @@ namespace ForageAutomator
             ConfigColor.Sanitize(config);
 
             notifier = new HudNotifier(config, helper.Translation);
-            scanCache = new ForageScanCache();
+            scanCache = new ForageScanCache(config);
             passiveController = new PassivePickupController(config, notifier, scanCache);
             runController = new ForageRunController(config, notifier, scanCache);
             lineRenderer = new ForageLineRenderer(config, passiveController, runController, scanCache);
@@ -95,8 +95,10 @@ namespace ForageAutomator
                 or nameof(ModConfig.PickupRadius)
                 or nameof(ModConfig.UsePathfinding)
                 or nameof(ModConfig.ItemRules)
+                or nameof(ModConfig.OtherInteractions)
                 or nameof(ModConfig.Areas)
                 || fieldName.StartsWith("ItemRules.")
+                || fieldName.StartsWith("OtherInteractions.")
                 || fieldName.StartsWith("Areas.")
                 || fieldName.StartsWith("Blocked.");
         }

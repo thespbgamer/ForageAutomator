@@ -35,7 +35,7 @@ namespace ForageAutomator.Automation
             this.config = config;
             this.notifier = notifier;
             this.scanCache = scanCache;
-            collectionService = new ForageCollectionService(notifier);
+            collectionService = new ForageCollectionService(config, notifier);
         }
 
         public void UpdateTicked(bool mapCollectRunning)
@@ -153,6 +153,15 @@ namespace ForageAutomator.Automation
                     continue;
                 }
 
+                if (target.Type == ForageType.GarbageCan
+                    && GarbageCanHelper.ShouldBlockWitness(config.OtherInteractions.GarbageCans.BlockWhenWitnessed, location, player))
+                {
+                    target.SkipReason = SkipReason.NpcWitness;
+                    if (config.OtherInteractions.GarbageCans.ShowLines)
+                        skippedTargets.Add(target);
+                    continue;
+                }
+
                 if (target.Type == ForageType.Panning)
                 {
                     if (!PanningHelper.IsReadyToCollect(location, player, target))
@@ -227,9 +236,10 @@ namespace ForageAutomator.Automation
                 MovementHelper.ReleasePlayerControlIfNeeded(player);
         }
 
-        private static void SnapToTarget(Farmer player, ForageTarget target)
+        private void SnapToTarget(Farmer player, ForageTarget target)
         {
             GameLocation location = Game1.currentLocation;
+            bool usePathfinding = MovementHelper.ShouldUsePathfinding(config, player, ref lastPlayerPosition, hasLastPlayerPosition);
 
             if (target.SkipReason == SkipReason.Unreachable)
                 return;
@@ -241,12 +251,12 @@ namespace ForageAutomator.Automation
             }
 
             Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
-            if (!WalkabilityHelper.IsReachable(location, player.Tile, stand))
+            if (usePathfinding && !WalkabilityHelper.IsReachable(location, player.Tile, stand))
                 return;
 
             if (target.Type == ForageType.Bush && target.Source is Bush bush)
-                BushHelper.SnapForBush(location, player, bush, stand);
-            else if (MovementHelper.TrySnapToStandTile(location, player, stand))
+                BushHelper.SnapForBush(location, player, bush, stand, usePathfinding);
+            else if (MovementHelper.TrySnapToStandTile(location, player, stand, usePathfinding))
                 CollectionHelper.PreparePlayer(player, target.Tile);
         }
     }

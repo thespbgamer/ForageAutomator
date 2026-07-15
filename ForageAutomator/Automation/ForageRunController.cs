@@ -61,7 +61,7 @@ namespace ForageAutomator.Automation
             this.config = config;
             this.scanCache = scanCache;
             this.notifier = notifier;
-            collectionService = new ForageCollectionService(notifier);
+            collectionService = new ForageCollectionService(config, notifier);
         }
 
         public void StartWholeMap()
@@ -257,27 +257,31 @@ namespace ForageAutomator.Automation
                 return;
 
             Farmer player = Game1.player;
-            bool highSpeed = MovementHelper.IsHighSpeedMovement(player, ref lastPlayerPosition, hasLastPlayerPosition);
-            hasLastPlayerPosition = true;
-            lastPlayerPosition = player.Position;
 
             if (state == SweepState.Moving)
             {
                 if (currentTarget != null && MovementHelper.IsCloseEnoughToCollect(player, currentTarget))
                 {
+                    hasLastPlayerPosition = true;
+                    lastPlayerPosition = player.Position;
                     BeginSettling(usedSnap: false);
                     return;
                 }
 
                 if (player.controller == null)
                 {
-                    if (config.UsePathfinding && !highSpeed)
+                    if (MovementHelper.ShouldUsePathfinding(config, player, ref lastPlayerPosition, hasLastPlayerPosition))
                         BeginSettling(usedSnap: false);
                     else
                         SnapAndSettle();
+
+                    hasLastPlayerPosition = true;
+                    lastPlayerPosition = player.Position;
                     return;
                 }
 
+                hasLastPlayerPosition = true;
+                lastPlayerPosition = player.Position;
                 return;
             }
 
@@ -300,6 +304,8 @@ namespace ForageAutomator.Automation
                     AdvanceToNextTarget();
                 }
 
+                hasLastPlayerPosition = true;
+                lastPlayerPosition = player.Position;
                 return;
             }
 
@@ -319,6 +325,9 @@ namespace ForageAutomator.Automation
                     settleCounter--;
                     if (settleCounter <= 0)
                         CollectCurrent();
+
+                    hasLastPlayerPosition = true;
+                    lastPlayerPosition = player.Position;
                     return;
                 }
 
@@ -326,9 +335,10 @@ namespace ForageAutomator.Automation
                 {
                     SnapAndSettle();
                     CollectCurrent();
-                    return;
                 }
 
+                hasLastPlayerPosition = true;
+                lastPlayerPosition = player.Position;
                 return;
             }
         }
@@ -361,7 +371,8 @@ namespace ForageAutomator.Automation
                 if (!ForageTargetFilters.IsEnabledForCollect(config, target.Type, currentSweepScope, location))
                     continue;
 
-                if (target.SkipReason == SkipReason.Unreachable)
+                if (target.SkipReason == SkipReason.Unreachable
+                    || target.SkipReason == SkipReason.NpcWitness)
                 {
                     skippedTargets.Add(target);
                     continue;
@@ -407,7 +418,7 @@ namespace ForageAutomator.Automation
                     return;
                 }
 
-                if (config.UsePathfinding && !MovementHelper.IsHighSpeedMovement(Game1.player, ref lastPlayerPosition, hasLastPlayerPosition))
+                if (MovementHelper.ShouldUsePathfinding(config, Game1.player, ref lastPlayerPosition, hasLastPlayerPosition))
                     MoveToTarget(currentTarget);
                 else
                     SnapAndSettle();
@@ -449,42 +460,45 @@ namespace ForageAutomator.Automation
                 return;
             }
 
+            Farmer player = Game1.player;
+            GameLocation location = Game1.currentLocation;
             Vector2 stand = MovementHelper.GetStandOrTargetTile(currentTarget);
-            bool unreachable;
-            if (currentTarget.Type == ForageType.Panning)
-            {
-                unreachable = stand == Vector2.Zero
-                    || !PanningHelper.IsValidPanStand(
-                        Game1.currentLocation,
-                        stand,
-                        currentTarget.Tile,
-                        Game1.player)
-                    || !WalkabilityHelper.GetReachableTiles(Game1.currentLocation, Game1.player.Tile).Contains(stand);
-            }
-            else
-            {
-                unreachable = !WalkabilityHelper.IsReachable(Game1.currentLocation, Game1.player.Tile, stand);
-            }
+            bool usePathfinding = MovementHelper.ShouldUsePathfinding(config, player, ref lastPlayerPosition, hasLastPlayerPosition);
 
-            if (unreachable)
+            if (usePathfinding)
             {
-                if (config.ShowTargetLines)
+                bool unreachable;
+                if (currentTarget.Type == ForageType.Panning)
                 {
-                    currentTarget.SkipReason = SkipReason.Unreachable;
-                    skippedTargets.Add(currentTarget);
+                    unreachable = stand == Vector2.Zero
+                        || !PanningHelper.IsValidPanStand(location, stand, currentTarget.Tile, player)
+                        || !WalkabilityHelper.GetReachableTiles(location, player.Tile).Contains(stand);
+                }
+                else
+                {
+                    unreachable = !WalkabilityHelper.IsReachable(location, player.Tile, stand);
                 }
 
-                currentTarget = null;
-                AdvanceToNextTarget();
-                return;
+                if (unreachable)
+                {
+                    if (config.ShowTargetLines)
+                    {
+                        currentTarget.SkipReason = SkipReason.Unreachable;
+                        skippedTargets.Add(currentTarget);
+                    }
+
+                    currentTarget = null;
+                    AdvanceToNextTarget();
+                    return;
+                }
             }
 
             if (currentTarget.Type == ForageType.Bush && currentTarget.Source is Bush bush)
-                BushHelper.SnapForBush(Game1.currentLocation, Game1.player, bush, stand);
+                BushHelper.SnapForBush(location, player, bush, stand, usePathfinding);
             else if (currentTarget.Type == ForageType.Panning)
-                PanningHelper.TryMoveToPanStand(Game1.currentLocation, Game1.player, currentTarget);
+                PanningHelper.TryMoveToPanStand(location, player, currentTarget);
             else
-                MovementHelper.SnapToStandTile(Game1.player, stand);
+                MovementHelper.SnapToStandTile(player, stand, usePathfinding);
             BeginSettling(usedSnap: true);
         }
 
@@ -534,6 +548,7 @@ namespace ForageAutomator.Automation
 
             CollectionHelper.PreparePlayerForTarget(location, player, target);
 
+            bool usePathfinding = MovementHelper.ShouldUsePathfinding(config, player, ref lastPlayerPosition, hasLastPlayerPosition);
             CollectResult result = CollectResult.Failed;
             for (int attempt = 0; attempt < 3; attempt++)
             {
@@ -547,13 +562,13 @@ namespace ForageAutomator.Automation
                     else if (target.Type == ForageType.Bush && target.Source is Bush bush)
                     {
                         Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
-                        if (!BushHelper.TrySnapForInteraction(location, player, bush, stand))
+                        if (!BushHelper.TrySnapForInteraction(location, player, bush, stand, usePathfinding))
                             continue;
                     }
                     else
                     {
                         Vector2 stand = MovementHelper.GetStandOrTargetTile(target);
-                        if (!MovementHelper.TrySnapToStandTile(location, player, stand))
+                        if (!MovementHelper.TrySnapToStandTile(location, player, stand, usePathfinding))
                             continue;
                     }
                 }
@@ -596,6 +611,14 @@ namespace ForageAutomator.Automation
                 ForageType.ForageCrop => ForageCropHelper.TryGetAt(location, target.Tile, out _),
                 ForageType.Panning => PanningHelper.IsActivePanTile(location, target.Tile),
                 ForageType.Bush => BushHelper.TryGetAt(location, target.Tile, out Bush bush) && BushHelper.IsHarvestable(bush),
+                ForageType.CrabPot => CrabPotHelper.TryGetAt(location, target.Tile, out _) && CrabPotHelper.IsHarvestable(location.objects[target.Tile]),
+                ForageType.FruitTree => FruitTreeHelper.TryGetAt(location, target.Tile, out FruitTree? tree) && FruitTreeHelper.IsHarvestable(tree),
+                ForageType.Machine => MachineHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.Tapper => TapperHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.BeeHouse => BeeHouseHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.MushroomBox => MushroomBoxHelper.TryGetAt(location, target.Tile, out _),
+                ForageType.GarbageCan => target.Source is GarbageCanInfo can && GarbageCanHelper.CanCheckToday(can.Id),
+                ForageType.HayGrass => HayGrassHelper.TryGetAt(location, target.Tile, out Grass? grass) && HayGrassHelper.IsHarvestable(location, target.Tile, grass),
                 _ => false
             };
         }

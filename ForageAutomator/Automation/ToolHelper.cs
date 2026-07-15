@@ -17,6 +17,11 @@ namespace ForageAutomator.Automation
             return FindCopperPan(player) != null;
         }
 
+        public static bool HasScythe(Farmer player)
+        {
+            return FindScythe(player) != null;
+        }
+
         public static Hoe? FindHoe(Farmer player)
         {
             foreach (Item? item in player.Items)
@@ -39,12 +44,24 @@ namespace ForageAutomator.Automation
             return null;
         }
 
+        public static MeleeWeapon? FindScythe(Farmer player)
+        {
+            foreach (Item? item in player.Items)
+            {
+                if (item is MeleeWeapon weapon && weapon.isScythe())
+                    return weapon;
+            }
+
+            return null;
+        }
+
         public static bool HasRequiredTool(Farmer player, RequiredToolKind tool)
         {
             return tool switch
             {
                 RequiredToolKind.Hoe => HasHoe(player),
                 RequiredToolKind.CopperPan => HasCopperPan(player),
+                RequiredToolKind.Scythe => HasScythe(player),
                 _ => true
             };
         }
@@ -144,6 +161,7 @@ namespace ForageAutomator.Automation
             {
                 RequiredToolKind.Hoe => "hoe",
                 RequiredToolKind.CopperPan => "pan",
+                RequiredToolKind.Scythe => "scythe",
                 _ => "tool"
             };
         }
