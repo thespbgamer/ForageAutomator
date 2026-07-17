@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Xna.Framework;
 using StardewValley;
+using StardewValley.Objects;
 using StardewValley.TerrainFeatures;
 using StardewValley.Tools;
 using SObject = StardewValley.Object;
@@ -12,7 +13,6 @@ namespace ForageAutomator.Automation
     {
         private const string ArtifactSpotId = "(O)590";
         private const string SeedSpotId = "(O)SeedSpot";
-        private const string ForageItemTag = "forage_item";
 
         public IReadOnlyList<ForageTarget> Scan(GameLocation location, Farmer player, int? maxRadius = null)
         {
@@ -324,10 +324,10 @@ namespace ForageAutomator.Automation
 
         private static bool IsGroundForage(SObject obj)
         {
-            if (obj.IsSpawnedObject)
-                return true;
+            if (obj is Furniture)
+                return false;
 
-            return obj.GetContextTags().Contains(ForageItemTag);
+            return obj.isForage();
         }
 
         internal static bool IsArtifactSpotObject(SObject obj)
