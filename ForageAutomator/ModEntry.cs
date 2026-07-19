@@ -31,6 +31,7 @@ namespace ForageAutomator
             lineRenderer = new ForageLineRenderer(config, passiveController, runController, scanCache);
 
             helper.Events.GameLoop.GameLaunched += OnGameLaunched;
+            helper.Events.GameLoop.UpdateTicking += OnUpdateTicking;
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
             helper.Events.GameLoop.DayStarted += OnDayStarted;
             helper.Events.GameLoop.TimeChanged += OnTimeChanged;
@@ -138,6 +139,15 @@ namespace ForageAutomator
                 return;
 
             OnLocationContentChanged();
+        }
+
+        private void OnUpdateTicking(object? sender, UpdateTickingEventArgs e)
+        {
+            if (!Context.IsWorldReady)
+                return;
+
+            passiveController.UpdateTicking(runController.IsRunning);
+            runController.UpdateTicking();
         }
 
         private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)

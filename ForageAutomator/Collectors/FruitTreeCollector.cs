@@ -25,10 +25,8 @@ namespace ForageAutomator.Collectors
             if (!shook)
                 return CollectResult.Failed;
 
-            int pickedUp = DebrisPickupHelper.CollectNearTile(location, player, target.Tile);
-            return pickedUp > 0 || !FruitTreeHelper.IsHarvestable(tree)
-                ? CollectResult.Success
-                : CollectResult.Failed;
+            DebrisPickupHelper.CollectForDebrisDrop(location, player, target.Type, target.Tile);
+            return CollectResult.Success;
         }
     }
 

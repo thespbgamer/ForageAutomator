@@ -10,8 +10,6 @@ namespace ForageAutomator.Automation
 {
     internal sealed class PassivePickupController
     {
-        private const int ActionHoldTicks = 15;
-
         private readonly ModConfig config;
         private readonly HudNotifier notifier;
         private readonly ForageScanCache scanCache;
@@ -19,7 +17,9 @@ namespace ForageAutomator.Automation
         private readonly List<ForageTarget> skippedTargets = new();
         private int tickCounter;
         private int actionHoldTicks;
+        private ForageType holdType;
         private Vector2 holdTile;
+        private Vector2 holdStandTile;
         private Vector2 lastPlayerPosition;
         private bool hasLastPlayerPosition;
 
@@ -38,6 +38,24 @@ namespace ForageAutomator.Automation
             collectionService = new ForageCollectionService(config, notifier);
         }
 
+        public void UpdateTicking(bool mapCollectRunning)
+        {
+            if (actionHoldTicks <= 0)
+                return;
+
+            if (!Context.IsWorldReady || mapCollectRunning)
+                return;
+
+            if (MovementHelper.IsRidingHorse(Game1.player))
+            {
+                actionHoldTicks = 0;
+                MovementHelper.ReleaseFromAutomationHold(Game1.player);
+                return;
+            }
+
+            MaintainActionHold(Game1.player, Game1.currentLocation);
+        }
+
         public void UpdateTicked(bool mapCollectRunning)
         {
             if (!config.AutoCollectOnRange || mapCollectRunning)
@@ -50,16 +68,7 @@ namespace ForageAutomator.Automation
             GameLocation location = Game1.currentLocation;
 
             if (actionHoldTicks > 0)
-            {
-                if (MovementHelper.IsRidingHorse(player))
-                {
-                    actionHoldTicks = 0;
-                    return;
-                }
-
-                MaintainActionHold(player, location);
                 return;
-            }
 
             bool highSpeed = MovementHelper.IsHighSpeedMovement(player, ref lastPlayerPosition, hasLastPlayerPosition);
             hasLastPlayerPosition = true;
@@ -195,11 +204,15 @@ namespace ForageAutomator.Automation
                     result = collectionService.TryCollect(location, player, target);
                 }
 
+                if (result == CollectResult.Success && ForageItemHelper.DropsOnGround(target))
+                {
+                    BeginActionHold(player, location, target);
+                    break;
+                }
+
                 MovementHelper.ReleasePlayerControlIfNeeded(player);
 
-                if (result == CollectResult.Success && ForageItemHelper.DropsOnGround(target))
-                    BeginActionHold(player, location, target.Tile);
-                else if (result != CollectResult.Success && config.ShowTargetLines)
+                if (result != CollectResult.Success && config.ShowTargetLines)
                     skippedTargets.Add(target);
             }
 
@@ -219,21 +232,37 @@ namespace ForageAutomator.Automation
             return true;
         }
 
-        private void BeginActionHold(Farmer player, GameLocation location, Vector2 tile)
+        private void BeginActionHold(Farmer player, GameLocation location, ForageTarget target)
         {
-            holdTile = tile;
-            actionHoldTicks = ActionHoldTicks;
+            holdType = target.Type;
+            holdTile = target.Tile;
+            holdStandTile = MovementHelper.GetStandOrTargetTile(target);
+            actionHoldTicks = ForageItemHelper.GetDebrisPickupTicks(target.Type);
             MaintainActionHold(player, location);
         }
 
         private void MaintainActionHold(Farmer player, GameLocation location)
         {
-            player.controller = null;
-            DebrisPickupHelper.CollectNearTile(location, player, holdTile);
+            int totalTicks = ForageItemHelper.GetDebrisPickupTicks(holdType);
+            int elapsedTicks = totalTicks - actionHoldTicks;
+
+            MovementHelper.HoldPlayerAtStand(player, holdStandTile);
+            DebrisPickupHelper.CollectForDebrisDrop(location, player, holdType, holdTile);
             actionHoldTicks--;
 
-            if (actionHoldTicks <= 0)
-                MovementHelper.ReleasePlayerControlIfNeeded(player);
+            bool shouldContinue = actionHoldTicks > 0;
+            if (shouldContinue
+                && ForageItemHelper.CanEarlyExitDebrisHold(holdType, elapsedTicks)
+                && !DebrisPickupHelper.HasRemainingDebris(location, player, holdType, holdTile))
+            {
+                shouldContinue = false;
+            }
+
+            if (!shouldContinue)
+            {
+                actionHoldTicks = 0;
+                MovementHelper.ReleaseFromAutomationHold(player);
+            }
         }
 
         private void SnapToTarget(Farmer player, ForageTarget target)
@@ -256,7 +285,7 @@ namespace ForageAutomator.Automation
 
             if (target.Type == ForageType.Bush && target.Source is Bush bush)
                 BushHelper.SnapForBush(location, player, bush, stand, usePathfinding);
-            else if (MovementHelper.TrySnapToStandTile(location, player, stand, usePathfinding))
+            else if (MovementHelper.TrySnapToStandTile(location, player, stand, usePathfinding, releaseAfterSnap: false))
                 CollectionHelper.PreparePlayer(player, target.Tile);
         }
     }

@@ -183,7 +183,7 @@ namespace ForageAutomator.Automation
                 return;
 
             Game1.player.controller = null;
-            MovementHelper.ReleasePlayerControl(Game1.player);
+            MovementHelper.ReleaseFromAutomationHold(Game1.player);
             queue.Clear();
             currentTarget = null;
             settleCounter = 0;
@@ -240,6 +240,14 @@ namespace ForageAutomator.Automation
             }
         }
 
+        public void UpdateTicking()
+        {
+            if (state != SweepState.AwaitingDebris || !Context.IsWorldReady)
+                return;
+
+            MaintainDebrisHold(Game1.player);
+        }
+
         public void UpdateTicked()
         {
             if (scanCache.ConsumeJustRefreshed())
@@ -287,23 +295,6 @@ namespace ForageAutomator.Automation
 
             if (state == SweepState.AwaitingDebris)
             {
-                if (currentTarget == null)
-                {
-                    AdvanceToNextTarget();
-                    return;
-                }
-
-                player.controller = null;
-                DebrisPickupHelper.CollectNearTile(Game1.currentLocation, player, currentTarget.Tile);
-                debrisPickupTicks--;
-
-                if (debrisPickupTicks <= 0)
-                {
-                    MovementHelper.ReleasePlayerControlIfNeeded(player);
-                    currentTarget = null;
-                    AdvanceToNextTarget();
-                }
-
                 hasLastPlayerPosition = true;
                 lastPlayerPosition = player.Position;
                 return;
@@ -583,8 +574,6 @@ namespace ForageAutomator.Automation
             if (target.Type == ForageType.Panning)
                 PanningHelper.ClearPanAnimationState(player);
 
-            MovementHelper.ReleasePlayerControlIfNeeded(player);
-
             if (result == CollectResult.Success)
                 collectedCount++;
             else if (config.ShowTargetLines)
@@ -593,12 +582,49 @@ namespace ForageAutomator.Automation
             if (result == CollectResult.Success && ForageItemHelper.DropsOnGround(target))
             {
                 state = SweepState.AwaitingDebris;
-                debrisPickupTicks = 15;
+                debrisPickupTicks = ForageItemHelper.GetDebrisPickupTicks(target.Type);
+                MaintainDebrisHold(player);
                 return;
             }
 
+            MovementHelper.ReleasePlayerControlIfNeeded(player);
+
             currentTarget = null;
             AdvanceToNextTarget();
+        }
+
+        private void MaintainDebrisHold(Farmer player)
+        {
+            if (currentTarget == null)
+            {
+                AdvanceToNextTarget();
+                return;
+            }
+
+            GameLocation location = Game1.currentLocation;
+            ForageTarget target = currentTarget;
+            int totalTicks = ForageItemHelper.GetDebrisPickupTicks(target.Type);
+            int elapsedTicks = totalTicks - debrisPickupTicks;
+
+            Vector2 standTile = MovementHelper.GetStandOrTargetTile(target);
+            MovementHelper.HoldPlayerAtStand(player, standTile);
+            DebrisPickupHelper.CollectForDebrisDrop(location, player, target.Type, target.Tile);
+            debrisPickupTicks--;
+
+            bool shouldContinue = debrisPickupTicks > 0;
+            if (shouldContinue
+                && ForageItemHelper.CanEarlyExitDebrisHold(target.Type, elapsedTicks)
+                && !DebrisPickupHelper.HasRemainingDebris(location, player, target.Type, target.Tile))
+            {
+                shouldContinue = false;
+            }
+
+            if (!shouldContinue)
+            {
+                MovementHelper.ReleaseFromAutomationHold(player);
+                currentTarget = null;
+                AdvanceToNextTarget();
+            }
         }
 
         private static bool IsTargetStillValid(ForageTarget target)
@@ -626,8 +652,7 @@ namespace ForageAutomator.Automation
         private void Finish()
         {
             Farmer player = Game1.player;
-            player.controller = null;
-            MovementHelper.ReleasePlayerControl(player);
+            MovementHelper.ReleaseFromAutomationHold(player);
             state = SweepState.Done;
             int experienceGained = ExperienceTracker.GetGainedSince(player, experienceAtSweepStart);
             notifier.ShowSweepComplete(collectedCount, experienceGained);

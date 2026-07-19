@@ -23,7 +23,12 @@ namespace ForageAutomator.Automation
             return config.UsePathfinding && !IsHighSpeedMovement(player, ref lastPosition, hasLastPosition);
         }
 
-        public static bool TrySnapToStandTile(GameLocation location, Farmer player, Vector2 standTile, bool usePathfinding = true)
+        public static bool TrySnapToStandTile(
+            GameLocation location,
+            Farmer player,
+            Vector2 standTile,
+            bool usePathfinding = true,
+            bool releaseAfterSnap = true)
         {
             if (!usePathfinding)
             {
@@ -34,7 +39,8 @@ namespace ForageAutomator.Automation
                 player.controller = null;
                 player.setTileLocation(nearbyStand);
                 CollectionHelper.FaceTarget(player, standTile);
-                ReleasePlayerControlIfNeeded(player);
+                if (releaseAfterSnap)
+                    ReleasePlayerControlIfNeeded(player);
                 return true;
             }
 
@@ -46,7 +52,8 @@ namespace ForageAutomator.Automation
             player.controller = null;
             player.setTileLocation(resolved);
             CollectionHelper.FaceTarget(player, standTile);
-            ReleasePlayerControlIfNeeded(player);
+            if (releaseAfterSnap)
+                ReleasePlayerControlIfNeeded(player);
             return true;
         }
 
@@ -62,6 +69,24 @@ namespace ForageAutomator.Automation
             player.controller = null;
             player.completelyStopAnimatingOrDoingAction();
             Farmer.canMoveNow(player);
+        }
+
+        public static void HoldPlayerAtStand(Farmer player, Vector2 standTile)
+        {
+            Game1.freezeControls = true;
+            player.controller = null;
+            player.Halt();
+            player.CanMove = false;
+
+            if (player.Tile != standTile)
+                player.setTileLocation(standTile);
+        }
+
+        public static void ReleaseFromAutomationHold(Farmer player)
+        {
+            Game1.freezeControls = false;
+            player.CanMove = true;
+            ReleasePlayerControl(player);
         }
 
         /// <summary>
@@ -211,6 +236,9 @@ namespace ForageAutomator.Automation
                 Vector2? stand = PanningHelper.ResolveStandTile(Game1.currentLocation, Game1.player, target, target.Tile);
                 return stand ?? Game1.player.Tile;
             }
+
+            if (target.Type == ForageType.FruitTree)
+                return FruitTreeHelper.ResolveStandTile(Game1.currentLocation, Game1.player, target.Tile);
 
             return target.Tile;
         }

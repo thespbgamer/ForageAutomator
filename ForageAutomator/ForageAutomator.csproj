@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <GamePath>/mnt/disk_id/SteamLibrary/steamapps/common/Stardew Valley/</GamePath>
+    <GamePath>/mnt/2467dc59-522c-43fb-b84c-e2c29d8d6444/SteamLibrary/steamapps/common/Stardew Valley/</GamePath>
   </PropertyGroup>
 
   <PropertyGroup>

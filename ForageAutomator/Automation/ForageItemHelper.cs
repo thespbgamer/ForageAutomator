@@ -55,6 +55,16 @@ namespace ForageAutomator.Automation
         {
             return DropsOnGround(target.Type);
         }
+
+        public static int GetDebrisPickupTicks(ForageType type)
+        {
+            return 15;
+        }
+
+        public static bool CanEarlyExitDebrisHold(ForageType type, int elapsedTicks)
+        {
+            return elapsedTicks >= 3;
+        }
     }
 
 }
